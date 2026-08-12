@@ -1,0 +1,11 @@
+# 排除原始加密引擎（FileEncryptor.exe）
+FileEncryptor.exe
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 系统文件
+Thumbs.db
+.DS_Store
