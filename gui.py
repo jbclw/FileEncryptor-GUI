@@ -785,44 +785,9 @@ class FileEncryptorGUI:
         )
         self.status_bar.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(4, 0))
 
-    # ── 页面预加载 ────────────────────────────────────────────────────────
-
-    def _preload_pages(self):
-        """异步预加载其他页面"""
-        modes = ["decrypt", "batch_enc", "batch_dec"]
-        for i, mode in enumerate(modes):
-            self.root.after(100 * (i + 1), lambda m=mode: self._preload_page(m))
-    
-    def _preload_page(self, mode):
-        """预加载单个页面"""
-        if mode in self._pages_loaded:
-            return
-        
-        # 临时隐藏页面
-        temp_frame = tk.Frame(self.page_frame, bg=BG_MAIN)
-        
-        # 构建页面
-        if mode == "encrypt":
-            self._build_encrypt_page()
-        elif mode == "decrypt":
-            self._build_decrypt_page()
-        elif mode == "batch_enc":
-            self._build_batch_encrypt_page()
-        elif mode == "batch_dec":
-            self._build_batch_decrypt_page()
-        
-        # 立即隐藏
-        for w in self.page_frame.winfo_children():
-            w.pack_forget()
-        
-        self._pages_loaded.add(mode)
-        
-        # 切回当前模式
-        self._switch_mode(self._current_mode, animate=False)
-
     # ── 页面切换 ──────────────────────────────────────────────────────────
 
-    def _switch_mode(self, mode, animate=True):
+    def _switch_mode(self, mode):
         self._current_mode = mode
 
         # 更新导航高亮
@@ -861,25 +826,6 @@ class FileEncryptorGUI:
         self._pages[mode].pack(fill="both", expand=True)
 
         self._set_status("就绪")
-        
-        # 页面切换动画
-        if animate and hasattr(self, 'page_frame'):
-            try:
-                current = self._pages[mode]
-                self.root.after(10, lambda: self._fade_in_widget(current))
-            except:
-                pass
-    
-    def _fade_in_widget(self, widget, alpha=0.0, step=0.1):
-        """淡入效果（通过背景色模拟）"""
-        if alpha >= 1.0:
-            return
-        try:
-            # 通过逐渐改变背景色模拟淡入
-            alpha = min(1.0, alpha + step)
-            self.root.after(20, lambda: self._fade_in_widget(widget, alpha, step))
-        except:
-            pass
 
     # ── 加密页面 ──────────────────────────────────────────────────────────
 
