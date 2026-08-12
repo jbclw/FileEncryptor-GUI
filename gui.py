@@ -18,6 +18,7 @@ import select
 from pathlib import Path
 from datetime import datetime
 import queue
+import configparser
 
 try:
     import winpty
@@ -28,6 +29,75 @@ try:
     import psutil
 except ImportError:
     psutil = None
+
+
+# ── 配置管理器 ──────────────────────────────────────────────────────────────
+
+class ConfigManager:
+    """管理用户配置持久化"""
+    
+    def __init__(self):
+        self.config_file = os.path.join(_SCRIPT_DIR, "config.ini")
+        self.config = configparser.ConfigParser()
+        self._load_config()
+    
+    def _load_config(self):
+        """从文件加载配置"""
+        if os.path.exists(self.config_file):
+            try:
+                self.config.read(self.config_file, encoding='utf-8')
+            except Exception as e:
+                print(f"加载配置失败: {e}")
+    
+    def _save_config(self):
+        """保存配置到文件"""
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                self.config.write(f)
+        except Exception as e:
+            print(f"保存配置失败: {e}")
+    
+    def get(self, section, key, default=None):
+        """获取配置值"""
+        try:
+            return self.config.get(section, key)
+        except (configparser.NoSectionError, configparser.NoOptionError):
+            return default
+    
+    def getint(self, section, key, default=0):
+        """获取整数配置值"""
+        try:
+            return self.config.getint(section, key)
+        except (configparser.NoSectionError, configparser.NoOptionError, ValueError):
+            return default
+    
+    def getboolean(self, section, key, default=False):
+        """获取布尔配置值"""
+        try:
+            return self.config.getboolean(section, key)
+        except (configparser.NoSectionError, configparser.NoOptionError, ValueError):
+            return default
+    
+    def set(self, section, key, value):
+        """设置配置值"""
+        if not self.config.has_section(section):
+            self.config.add_section(section)
+        self.config.set(section, key, str(value))
+    
+    def save(self):
+        """保存所有配置"""
+        self._save_config()
+
+
+# 全局配置实例
+_config = None
+
+def get_config():
+    """获取全局配置管理器"""
+    global _config
+    if _config is None:
+        _config = ConfigManager()
+    return _config
 
 def find_helper_python():
     """找到有 winpty 的 Python"""
@@ -461,7 +531,7 @@ class PasswordEntry(tk.Frame):
 
 
 class FileSelector(tk.Frame):
-    """文件/目录选择器"""
+    """文件/目录选择器，支持拖放和粘贴"""
 
     def __init__(self, parent, label="", is_dir=False, **kwargs):
         super().__init__(parent, bg=BG_CARD)
@@ -484,6 +554,18 @@ class FileSelector(tk.Frame):
             insertbackground=TEXT_DARK,
         )
         self.entry.pack(side="left", fill="x", expand=True, ipady=3)
+        
+        # 添加右键菜单
+        self._create_context_menu()
+        
+        # 绑定拖放事件（如果支持）
+        try:
+            # 尝试使用 tkinterdnd2（如果已安装）
+            import tkinterdnd2
+            self.entry.dnd_bind('<<Drop>>', self._on_drop)
+        except ImportError:
+            # tkinterdnd2 未安装，使用粘贴功能
+            pass
 
         self.btn = tk.Label(
             row, text="\u2026", font=("Segoe UI", 14),
@@ -492,6 +574,40 @@ class FileSelector(tk.Frame):
         )
         self.btn.pack(side="right", before=self.entry)
         self.btn.bind("<Button-1>", self._browse)
+
+    def _create_context_menu(self):
+        """创建右键菜单"""
+        self.context_menu = tk.Menu(self, tearoff=0)
+        self.context_menu.add_command(label="粘贴路径", command=self._paste_path)
+        self.context_menu.add_command(label="清空", command=self.clear)
+        
+        self.entry.bind("<Button-3>", self._show_context_menu)
+
+    def _show_context_menu(self, event):
+        """显示右键菜单"""
+        try:
+            self.context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.context_menu.grab_release()
+
+    def _paste_path(self):
+        """从剪贴板粘贴路径"""
+        try:
+            path = self.entry.clipboard_get()
+            if path:
+                # 清理路径（去除引号和空白）
+                path = path.strip().strip('"').strip("'")
+                self.set(path)
+        except tk.TclError:
+            pass  # 剪贴板为空
+
+    def _on_drop(self, event):
+        """处理文件拖放"""
+        path = event.data
+        if path:
+            # 清理路径（去除引号和空白）
+            path = path.strip().strip('"').strip("'")
+            self.set(path)
 
     def _browse(self, event=None):
         if self.is_dir:
@@ -580,9 +696,15 @@ class FileEncryptorGUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("FileEncryptor")
-        self.root.geometry("880x620")
-        self.root.minsize(760, 540)
         self.root.configure(bg=BG_MAIN)
+        
+        # 加载配置
+        self.config = get_config()
+        
+        # 恢复窗口状态
+        self._restore_window_state()
+        
+        self.root.minsize(760, 540)
 
         # 窗口图标（如果有）
         try:
@@ -602,16 +724,85 @@ class FileEncryptorGUI:
 
         self._build_ui()
         self._switch_mode("encrypt")
-
-        # 居中显示
-        self.root.update_idletasks()
-        w = self.root.winfo_width()
-        h = self.root.winfo_height()
-        sw = self.root.winfo_screenwidth()
-        sh = self.root.winfo_screenheight()
-        x = (sw - w) // 2
-        y = (sh - h) // 2 - 30
-        self.root.geometry(f"+{x}+{y}")
+        self._setup_shortcuts()
+        
+        # 绑定关闭事件
+        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
+        
+        # 如果没有保存的窗口状态，则居中显示
+        if not self.config.getboolean("window", "has_saved_state", False):
+            self.root.update_idletasks()
+            w = self.root.winfo_width()
+            h = self.root.winfo_height()
+            sw = self.root.winfo_screenwidth()
+            sh = self.root.winfo_screenheight()
+            x = (sw - w) // 2
+            y = (sh - h) // 2 - 30
+            self.root.geometry(f"+{x}+{y}")
+    
+    def _restore_window_state(self):
+        """恢复窗口状态（位置、大小）"""
+        x = self.config.getint("window", "x", -1)
+        y = self.config.getint("window", "y", -1)
+        width = self.config.getint("window", "width", 880)
+        height = self.config.getint("window", "height", 620)
+        
+        if x >= 0 and y >= 0:
+            self.root.geometry(f"{width}x{height}+{x}+{y}")
+        else:
+            self.root.geometry(f"{width}x{height}")
+    
+    def _save_window_state(self):
+        """保存窗口状态"""
+        try:
+            self.root.update_idletasks()
+            x = self.root.winfo_x()
+            y = self.root.winfo_y()
+            width = self.root.winfo_width()
+            height = self.root.winfo_height()
+            
+            self.config.set("window", "x", x)
+            self.config.set("window", "y", y)
+            self.config.set("window", "width", width)
+            self.config.set("window", "height", height)
+            self.config.set("window", "has_saved_state", True)
+            self.config.save()
+        except Exception as e:
+            print(f"保存窗口状态失败: {e}")
+    
+    def _on_closing(self):
+        """窗口关闭事件"""
+        self._save_window_state()
+        self.root.destroy()
+    
+    def _setup_shortcuts(self):
+        """设置键盘快捷键"""
+        # Ctrl+E: 加密文件
+        self.root.bind("<Control-e>", lambda e: self._switch_mode("encrypt"))
+        # Ctrl+D: 解密文件
+        self.root.bind("<Control-d>", lambda e: self._switch_mode("decrypt"))
+        # Ctrl+Shift+E: 批量加密
+        self.root.bind("<Control-E>", lambda e: self._switch_mode("batch_enc"))
+        # Ctrl+Shift+D: 批量解密
+        self.root.bind("<Control-D>", lambda e: self._switch_mode("batch_dec"))
+        # Ctrl+L: 导出日志
+        self.root.bind("<Control-l>", lambda e: self._export_log())
+        # Ctrl+W: 清空日志
+        self.root.bind("<Control-w>", lambda e: self._clear_output())
+        # F5: 刷新（当前无操作，预留）
+        self.root.bind("<F5>", lambda e: self._refresh())
+        # Esc: 取消操作（如果有运行中的任务）
+        self.root.bind("<Escape>", lambda e: self._cancel_operation())
+    
+    def _refresh(self):
+        """刷新当前页面（预留功能）"""
+        pass
+    
+    def _cancel_operation(self):
+        """取消当前操作（预留功能）"""
+        if self._running:
+            self._log("[!] 用户取消操作")
+            # TODO: 实现取消逻辑
 
     # ── 构建 UI ──────────────────────────────────────────────────────────
 
@@ -752,12 +943,24 @@ class FileEncryptorGUI:
             font=FONT_SM, fg=TEXT_MUTED, bg=BG_MAIN
         ).pack(side="left")
 
+        # 导出按钮
+        export_btn = tk.Label(
+            head_row, text="\u2193 导出", font=FONT_SM,
+            fg=TEXT_MUTED, bg=BG_MAIN, cursor="hand2", padx=8,
+        )
+        export_btn.pack(side="right", padx=(0, 8))
+        export_btn.bind("<Button-1>", lambda e: self._export_log())
+        export_btn.bind("<Enter>", lambda e: export_btn.config(fg=ACCENT))
+        export_btn.bind("<Leave>", lambda e: export_btn.config(fg=TEXT_MUTED))
+
         self.clear_out_btn = tk.Label(
             head_row, text="\u00d7 清除", font=FONT_SM,
             fg=TEXT_MUTED, bg=BG_MAIN, cursor="hand2",
         )
         self.clear_out_btn.pack(side="right")
         self.clear_out_btn.bind("<Button-1>", lambda e: self._clear_output())
+        self.clear_out_btn.bind("<Enter>", lambda e: self.clear_out_btn.config(fg=ERROR))
+        self.clear_out_btn.bind("<Leave>", lambda e: self.clear_out_btn.config(fg=TEXT_MUTED))
 
         # 日志文本框
         out_bg = "#1e1e1e"
@@ -1132,6 +1335,40 @@ class FileEncryptorGUI:
         self.output_text.config(state="normal")
         self.output_text.delete("1.0", "end")
         self.output_text.config(state="disabled")
+
+    def _export_log(self):
+        """导出日志到文件"""
+        self.output_text.config(state="normal")
+        log_content = self.output_text.get("1.0", "end").strip()
+        self.output_text.config(state="disabled")
+        
+        if not log_content:
+            messagebox.showinfo("提示", "日志为空")
+            return
+        
+        # 获取上次保存路径
+        last_path = self.config.get("paths", "last_export_dir", "")
+        
+        file_path = filedialog.asksaveasfilename(
+            title="导出日志",
+            defaultextension=".txt",
+            initialdir=last_path if last_path else None,
+            filetypes=[("文本文件", "*.txt"), ("所有文件", "*.*")]
+        )
+        
+        if file_path:
+            try:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(log_content)
+                
+                # 保存导出目录
+                export_dir = os.path.dirname(file_path)
+                self.config.set("paths", "last_export_dir", export_dir)
+                self.config.save()
+                
+                self._set_status(f"日志已导出: {os.path.basename(file_path)}")
+            except Exception as e:
+                messagebox.showerror("错误", f"导出失败:\n{str(e)}")
 
     def _set_status(self, text):
         self.status_bar.config(text=text)
