@@ -1088,11 +1088,11 @@ class FileEncryptorGUI:
         ).grid(row=0, column=0, sticky="w", padx=(0, 8))
 
         self.enc_algo = ttk.Combobox(
-            opt_row, values=["AES-256-GCM", "XChaCha20-Poly1305"],
+            opt_row, values=["XChaCha20-Poly1305", "AEGIS-256"],
             state="readonly", font=FONT, width=18,
         )
         self.enc_algo.grid(row=0, column=1, sticky="w")
-        self.enc_algo.set("AES-256-GCM")
+        self.enc_algo.set("XChaCha20-Poly1305")
 
         self.enc_del = tk.Frame(opt_row, bg=BG_CARD)
         self.enc_del.grid(row=0, column=2, sticky="e", padx=(16, 0))
@@ -1223,11 +1223,11 @@ class FileEncryptorGUI:
             opt_row, text="算法", font=FONT_SM, fg=TEXT_DARK, bg=BG_CARD
         ).grid(row=0, column=0, sticky="w", padx=(0, 8))
         self.benc_algo = ttk.Combobox(
-            opt_row, values=["AES-256-GCM", "XChaCha20-Poly1305"],
+            opt_row, values=["XChaCha20-Poly1305", "AEGIS-256"],
             state="readonly", font=FONT, width=18,
         )
         self.benc_algo.grid(row=0, column=1, sticky="w")
-        self.benc_algo.set("AES-256-GCM")
+        self.benc_algo.set("XChaCha20-Poly1305")
 
         tk.Label(
             opt_row, text="线程数", font=FONT_SM, fg=TEXT_DARK, bg=BG_CARD
@@ -1568,8 +1568,9 @@ class FileEncryptorGUI:
         args = ["-be", "-i", src]
         if out:
             args += ["-o", out]
-        if algo.startswith("XChaCha20"):
-            args += ["-m", "xchacha20"]
+        if algo.startswith("AEGIS"):
+            args += ["-m", "aegis256"]
+        # xchacha20 是默认值，无需显式传 -m
         if threads:
             args += ["-j", threads]
         if delete:
