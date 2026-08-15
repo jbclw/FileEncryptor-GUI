@@ -1,5 +1,7 @@
 # FileEncryptor GUI
 
+> **English** · [中文](README.md) | [English](README_en.md)
+
 FileEncryptor 命令行工具的图形界面封装，**支持 Windows 与 Linux**。提供文件加密、解密和批量处理功能，支持 XChaCha20-Poly1305 和 AEGIS-256 两种加密算法。
 
 ## 目录结构
