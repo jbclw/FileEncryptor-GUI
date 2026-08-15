@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-FileEncryptor winpty runner - bridge script
-Runs FileEncryptor.exe via winpty (ConPTY) to handle _getch() password input.
+FileEncryptor PTY runner - bridge script
+Runs the FileEncryptor engine through a pseudo-terminal so the CLI's
+_getch()/termios password prompt can be fed programmatically.
+
+Platform backends:
+    Windows -> pywinpty (ConPTY)
+    POSIX   -> built-in pty module (no external dependency)
+
 Called by gui.py as a subprocess; streams output to stdout.
 
 Usage:
-    python _runner.py <exe_path> <args_json> <password> <password2> <overwrite> <fallback> <timeout>
+    python _runner.py <engine_path> <args_json> <overwrite> <fallback> <timeout>
+
+Passwords are passed via environment variables FE_GUI_PW1 / FE_GUI_PW2
+(/proc/<pid>/environ is only readable by the owner, safer than argv).
 
 Output format:
     Normal lines: raw program output
@@ -14,16 +23,19 @@ Output format:
 """
 import sys
 import os
+import subprocess
 import json
 import time
-import re
 
-try:
-    import winpty
-except ImportError:
-    print("__EXIT__:-1")
-    print("__ERR__:winpty not installed")
-    sys.exit(1)
+IS_WINDOWS = (os.name == "nt")
+
+if IS_WINDOWS:
+    try:
+        import winpty
+    except ImportError:
+        winpty = None
+else:
+    winpty = None
 
 try:
     import psutil
@@ -31,19 +43,141 @@ except ImportError:
     psutil = None
 
 
+# ── 进程后端抽象（统一接口）──────────────────────────────────────────────
+
+class WinPtyProcess:
+    """Windows 后端：winpty (ConPTY)"""
+
+    def __init__(self, argv, cwd, env=None):
+        if winpty is None:
+            raise RuntimeError("pywinpty not installed")
+        self.proc = winpty.PtyProcess.spawn(argv, cwd=cwd, env=env)
+        self.pid = self.proc.pid
+        try:
+            self.sock = self.proc.fileobj
+            self.sock.setblocking(False)
+        except Exception:
+            self.sock = None
+
+    def read(self):
+        """非阻塞读取，返回 str（无数据返回空串）"""
+        if self.sock is None:
+            return ""
+        try:
+            data = self.sock.recv(65536)
+        except Exception:
+            return ""
+        if not data:
+            return ""
+        return data.decode("utf-8", errors="replace")
+
+    def writeline(self, text):
+        self.proc.write(text + "\r")
+
+    def isalive(self):
+        return self.proc.isalive()
+
+    def exitstatus(self):
+        try:
+            return self.proc.exitstatus
+        except Exception:
+            return -999
+
+    def close(self):
+        try:
+            self.proc.close()
+        except Exception:
+            pass
+
+    def kill(self):
+        try:
+            self.proc.kill()
+        except Exception:
+            pass
+
+
+class PosixPtyProcess:
+    """Linux/macOS 后端：内置 pty 模块，零外部依赖"""
+
+    def __init__(self, argv, cwd, env=None):
+        import pty
+        import fcntl
+        self.master_fd, slave_fd = pty.openpty()
+        self.proc = subprocess.Popen(
+            argv,
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            close_fds=True,
+            cwd=cwd,
+            env=env,
+        )
+        os.close(slave_fd)
+        # 设为非阻塞
+        fl = fcntl.fcntl(self.master_fd, fcntl.F_GETFL)
+        fcntl.fcntl(self.master_fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+        self.pid = self.proc.pid
+
+    def read(self):
+        """非阻塞读取，返回 str（无数据返回空串；EIO 表示对端已关闭）"""
+        try:
+            data = os.read(self.master_fd, 65536)
+        except BlockingIOError:
+            return ""
+        except OSError:
+            return ""
+        if not data:
+            return ""
+        return data.decode("utf-8", errors="replace")
+
+    def writeline(self, text):
+        # termios 默认 ICRNL 会把 \r 翻译为 \n，但直接发 \n 最稳妥
+        os.write(self.master_fd, (text + "\n").encode("utf-8"))
+
+    def isalive(self):
+        return self.proc.poll() is None
+
+    def exitstatus(self):
+        return self.proc.returncode
+
+    def close(self):
+        try:
+            os.close(self.master_fd)
+        except Exception:
+            pass
+
+    def kill(self):
+        try:
+            self.proc.kill()
+        except Exception:
+            pass
+
+
+def spawn_backend(argv, cwd):
+    """按平台选择后端并启动进程（密码环境变量不传给引擎）"""
+    child_env = {k: v for k, v in os.environ.items()
+                 if not k.startswith("FE_GUI_PW")}
+    if IS_WINDOWS:
+        return WinPtyProcess(argv, cwd, child_env)
+    return PosixPtyProcess(argv, cwd, child_env)
+
+
+# ── 主流程 ──────────────────────────────────────────────────────────────
+
 def main():
     if len(sys.argv) < 3:
         print("__EXIT__:-1")
         print("__ERR__:not enough arguments")
         return
 
-    exe_path = sys.argv[1]
+    engine_path = sys.argv[1]
     args = json.loads(sys.argv[2])
-    password = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] else None
-    password2 = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else None
-    overwrite = sys.argv[5] if len(sys.argv) > 5 else None
-    fallback = sys.argv[6] if len(sys.argv) > 6 else None
-    timeout = float(sys.argv[7]) if len(sys.argv) > 7 else 300
+    # 密码经环境变量传递（比命令行参数安全，见文件头说明）
+    password = os.environ.get("FE_GUI_PW1") or None
+    password2 = os.environ.get("FE_GUI_PW2") or None
+    overwrite = sys.argv[3] if len(sys.argv) > 3 else None
+    fallback = sys.argv[4] if len(sys.argv) > 4 else None
+    timeout = float(sys.argv[5]) if len(sys.argv) > 5 else 300
 
     if overwrite == "":
         overwrite = None
@@ -55,11 +189,11 @@ def main():
     elif fallback is not None:
         fallback = fallback.lower() in ("y", "yes", "true", "1")
 
-    argv = [exe_path] + args
-    cwd = os.path.dirname(exe_path) if os.path.dirname(exe_path) else None
+    argv = [engine_path] + args
+    cwd = os.path.dirname(engine_path) if os.path.dirname(engine_path) else None
 
     try:
-        proc = winpty.PtyProcess.spawn(argv, cwd=cwd)
+        proc = spawn_backend(argv, cwd)
     except Exception as e:
         print(f"__ERR__:{e}")
         print("__EXIT__:-1")
@@ -72,28 +206,6 @@ def main():
         except Exception:
             pass
 
-    try:
-        sock = proc.fileobj
-        sock.setblocking(False)
-    except Exception:
-        sock = None
-
-    def drain():
-        chunks = []
-        if sock is None:
-            return chunks
-        while True:
-            try:
-                data = sock.recv(65536)
-            except (BlockingIOError, OSError):
-                break
-            except Exception:
-                break
-            if not data:
-                break
-            chunks.append(data.decode("utf-8", errors="replace"))
-        return chunks
-
     t0 = time.time()
     all_text = ""
     sent_pw1 = False
@@ -102,64 +214,60 @@ def main():
     sent_fallback = False
     exit_code = None
     last_flush_len = 0
-    out = getattr(sys.stdout, "buffer", sys.stdout)
 
     while True:
         if timeout and (time.time() - t0) > timeout:
-            try:
-                proc.kill()
-            except Exception:
-                pass
+            proc.kill()
             sys.stdout.write("__ERR__:timeout\n")
             sys.stdout.flush()
             break
 
-        new_chunks = drain()
-        if new_chunks:
-            all_text += "".join(new_chunks)
+        # 读取新输出
+        new_text = proc.read()
+        if new_text:
+            all_text += new_text
 
-        # Password injection
+        # 密码注入
         if password and not sent_pw1 and "Enter password" in all_text:
             time.sleep(0.15)
-            proc.write(password + "\r")
+            proc.writeline(password)
             sent_pw1 = True
 
         if not sent_pw2 and "Re-enter password" in all_text:
             pw = password2 if password2 else password
             if pw:
                 time.sleep(0.15)
-                proc.write(pw + "\r")
+                proc.writeline(pw)
                 sent_pw2 = True
 
-        # Overwrite confirmation
+        # 覆盖确认
         if overwrite is not None and not sent_overwrite and "Overwrite?" in all_text:
             time.sleep(0.15)
-            proc.write(("y" if overwrite else "n") + "\r")
+            proc.writeline("y" if overwrite else "n")
             sent_overwrite = True
 
-        # AES fallback
+        # 算法回退确认
         if fallback is not None and not sent_fallback and "switch to XChaCha20" in all_text:
             time.sleep(0.15)
-            proc.write(("y" if fallback else "n") + "\r")
+            proc.writeline("y" if fallback else "n")
             sent_fallback = True
 
-        # Flush new output to stdout
+        # 增量输出到 stdout
         if len(all_text) > last_flush_len:
             new_part = all_text[last_flush_len:]
             last_flush_len = len(all_text)
             sys.stdout.write(new_part)
             sys.stdout.flush()
 
-        # Check if process exited
+        # 检查进程退出
         exited = False
         if psutil_proc is not None:
             try:
                 if not psutil_proc.is_running():
                     exit_code = psutil_proc.wait(timeout=2)
                     time.sleep(0.3)
-                    new_chunks = drain()
-                    if new_chunks:
-                        remaining = "".join(new_chunks)
+                    remaining = proc.read()
+                    if remaining:
                         sys.stdout.write(remaining)
                         sys.stdout.flush()
                     exited = True
@@ -168,29 +276,21 @@ def main():
                 exited = True
             except Exception:
                 pass
-        else:
-            if not proc.isalive():
-                time.sleep(0.5)
-                try:
-                    exit_code = proc.exitstatus
-                except Exception:
-                    exit_code = -999
-                new_chunks = drain()
-                if new_chunks:
-                    remaining = "".join(new_chunks)
-                    sys.stdout.write(remaining)
-                    sys.stdout.flush()
-                exited = True
+        if not exited and not proc.isalive():
+            time.sleep(0.3)
+            remaining = proc.read()
+            if remaining:
+                sys.stdout.write(remaining)
+                sys.stdout.flush()
+            exit_code = proc.exitstatus()
+            exited = True
 
         if exited:
             break
 
         time.sleep(0.03)
 
-    try:
-        proc.close()
-    except Exception:
-        pass
+    proc.close()
 
     sys.stdout.write(f"\n__EXIT__:{exit_code if exit_code is not None else -1}\n")
     sys.stdout.flush()

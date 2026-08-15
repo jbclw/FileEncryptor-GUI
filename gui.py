@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 FileEncryptor GUI —— 文件加密工具图形界面
-基于 FileEncryptor.exe 命令行工具的封装
+基于 FileEncryptor 命令行工具的封装（Windows / Linux / macOS）
 """
 
 import tkinter as tk
@@ -19,6 +19,8 @@ from pathlib import Path
 from datetime import datetime
 import queue
 import configparser
+
+IS_WINDOWS = (os.name == "nt")
 
 try:
     import winpty
@@ -100,7 +102,13 @@ def get_config():
     return _config
 
 def find_helper_python():
-    """找到有 winpty 的 Python"""
+    """找到可运行 _runner.py 的 Python
+    POSIX：_runner.py 使用内置 pty，直接返回当前解释器
+    Windows：_runner.py 依赖 winpty，需找到装有 pywinpty 的解释器
+    """
+    if not IS_WINDOWS:
+        return sys.executable
+
     # 1. 先检查当前运行的 Python 是否有 winpty（最常见情况）
     if winpty is not None:
         return sys.executable
@@ -140,23 +148,32 @@ _HELPER_PYTHON = None
 # ── 配置 ──────────────────────────────────────────────────────────────────
 
 # 可执行文件查找策略（按优先级）：
-# 1. gui.py 同目录下的 FileEncryptor.exe
+# 1. gui.py 同目录下的引擎可执行文件
 # 2. gui.py 的父目录（即项目根目录）
 # 3. 父目录的父目录
 # 4. 系统 PATH
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-EXE_CANDIDATES = [
-    os.path.join(_SCRIPT_DIR, "FileEncryptor.exe"),           # 同目录
-    os.path.join(_SCRIPT_DIR, "..", "FileEncryptor.exe"),     # 父目录
-    os.path.join(_SCRIPT_DIR, "..", "..", "FileEncryptor.exe"),# 祖父目录
-    "FileEncryptor.exe",                                        # PATH
-]
+
+# 引擎文件名按平台区分：Windows 为 FileEncryptor.exe，POSIX 为 FileEncryptor
+if IS_WINDOWS:
+    _ENGINE_NAMES = ["FileEncryptor.exe"]
+else:
+    _ENGINE_NAMES = ["FileEncryptor", "fileencryptor"]
+
+EXE_CANDIDATES = []
+for _name in _ENGINE_NAMES:
+    EXE_CANDIDATES += [
+        os.path.join(_SCRIPT_DIR, _name),                    # 同目录
+        os.path.join(_SCRIPT_DIR, "..", _name),              # 父目录
+        os.path.join(_SCRIPT_DIR, "..", "..", _name),        # 祖父目录
+        _name,                                                # PATH
+    ]
 
 def find_exe():
     """查找可执行文件路径"""
     for p in EXE_CANDIDATES:
         absp = os.path.abspath(p)
-        if os.path.isfile(absp):
+        if os.path.isfile(absp) and os.access(absp, os.X_OK):
             return absp
     # 全没找到，返回最后一个候选
     return os.path.abspath(EXE_CANDIDATES[-1])
@@ -178,12 +195,19 @@ INPUT_BG = "#ffffff"      # 输入框白底
 BTN_BG = "#e8e0d4"        # 按钮底色
 BTN_TEXT = "#2c2822"      # 按钮文字
 
-# 字体
-FONT = ("Segoe UI", 10)
-FONT_SM = ("Segoe UI", 9)
-FONT_LG = ("Segoe UI", 12, "bold")
-FONT_MONO = ("Consolas", 10)
-FONT_HEAD = ("Segoe UI", 11, "bold")
+# 字体（按平台选择；若系统缺失指定字体，Tk 会自动回退默认字体）
+if IS_WINDOWS:
+    FONT_FAMILY = "Segoe UI"
+    FONT_FAMILY_MONO = "Consolas"
+else:
+    FONT_FAMILY = "DejaVu Sans"
+    FONT_FAMILY_MONO = "DejaVu Sans Mono"
+
+FONT = (FONT_FAMILY, 10)
+FONT_SM = (FONT_FAMILY, 9)
+FONT_LG = (FONT_FAMILY, 12, "bold")
+FONT_MONO = (FONT_FAMILY_MONO, 10)
+FONT_HEAD = (FONT_FAMILY, 11, "bold")
 
 # 动画配置
 ANIM_DURATION = 200  # 毫秒
@@ -343,8 +367,9 @@ class LoadingIndicator(tk.Canvas):
 def run_fileencryptor_stream(args, password=None, password2=None, timeout=300,
                               overwrite=None, fallback=None):
     """
-    通过 _runner.py + winpty 流式运行 FileEncryptor.exe
-    解决 _getch() 密码输入问题：伪终端模拟键盘输入
+    通过 _runner.py 流式运行 FileEncryptor 引擎
+    伪终端模拟键盘输入，解决 _getch()/termios 密码注入问题
+    （Windows 走 pywinpty，POSIX 走内置 pty 模块）
 
     Yields (line_text, progress_info, error) 三元组
       - line_text: 当前行文本（空字符串表示控制消息）
@@ -354,7 +379,13 @@ def run_fileencryptor_stream(args, password=None, password2=None, timeout=300,
     global _HELPER_PYTHON
     exe = find_exe()
 
-    # 查找有 winpty 的 Python
+    # 引擎不存在时提前报错（避免 runner 侧晦涩的失败信息）
+    if not os.path.isfile(exe):
+        engine_name = _ENGINE_NAMES[0]
+        yield ("", None, f"FileEncryptor engine not found: {engine_name}")
+        return
+
+    # 查找可运行 _runner.py 的 Python（POSIX 直接用当前解释器）
     if _HELPER_PYTHON is None:
         _HELPER_PYTHON = find_helper_python()
 
@@ -368,16 +399,18 @@ def run_fileencryptor_stream(args, password=None, password2=None, timeout=300,
         return
 
     # 构建 helper 命令行
+    # 密码经环境变量传递：/proc/<pid>/environ 仅本用户可读，比命令行参数安全
     args_json = json.dumps(args)
     ow = "" if overwrite is None else ("y" if overwrite else "n")
     fb = "" if fallback is None else ("y" if fallback else "n")
-    pw1 = password or ""
-    pw2 = password2 or ""
 
     cmd = [
         _HELPER_PYTHON, runner_script,
-        exe, args_json, pw1, pw2, ow, fb, str(int(timeout))
+        exe, args_json, ow, fb, str(int(timeout))
     ]
+    env = dict(os.environ)
+    env["FE_GUI_PW1"] = password or ""
+    env["FE_GUI_PW2"] = password2 or ""
 
     try:
         proc = subprocess.Popen(
@@ -385,6 +418,7 @@ def run_fileencryptor_stream(args, password=None, password2=None, timeout=300,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+            env=env,
         )
     except Exception as e:
         yield ("", None, f"Failed to spawn runner: {e}")
@@ -477,7 +511,7 @@ class PasswordEntry(tk.Frame):
         self.entry.pack(side="left", fill="x", expand=True, ipady=3)
 
         self.toggle_btn = tk.Label(
-            row, text="\u25cf", font=("Segoe UI", 12),
+            row, text="\u25cf", font=(FONT_FAMILY, 12),
             bg=INPUT_BG, fg=TEXT_MUTED, cursor="hand2",
             padx=6,
         )
@@ -568,7 +602,7 @@ class FileSelector(tk.Frame):
             pass
 
         self.btn = tk.Label(
-            row, text="\u2026", font=("Segoe UI", 14),
+            row, text="\u2026", font=(FONT_FAMILY, 14),
             bg=INPUT_BG, fg=TEXT_DARK, cursor="hand2",
             padx=8, pady=0,
         )
@@ -846,13 +880,13 @@ class FileEncryptorGUI:
         head.grid(row=0, column=0, sticky="ew", padx=18, pady=(22, 16))
         title = tk.Label(
             head, text="FileEncryptor",
-            font=("Segoe UI", 14, "bold"),
+            font=(FONT_FAMILY, 14, "bold"),
             bg=BG_SIDEBAR, fg=TEXT_LIGHT, anchor="w"
         )
         title.pack(fill="x")
         subtitle = tk.Label(
             head, text="文件加密工具",
-            font=("Segoe UI", 9),
+            font=(FONT_FAMILY, 9),
             bg=BG_SIDEBAR, fg="#8a8278", anchor="w"
         )
         subtitle.pack(fill="x", pady=(2, 0))
@@ -886,7 +920,7 @@ class FileEncryptorGUI:
         ver_frame.grid(row=10, column=0, sticky="ew")
         ver = tk.Label(
             ver_frame, text="v1.1.1 \u00b7 libsodium",
-            font=("Segoe UI", 8), fg="#5a544c",
+            font=(FONT_FAMILY, 8), fg="#5a544c",
             bg=BG_SIDEBAR, anchor="w", padx=18, pady=12,
         )
         ver.pack(fill="x")
@@ -1138,7 +1172,7 @@ class FileEncryptorGUI:
         hint.grid(row=1, column=0, sticky="nw", pady=(8, 0))
         tk.Label(
             hint, text="\u2139  密码强度仅作参考。实际安全性取决于密码长度和复杂度。",
-            font=("Segoe UI", 8), fg=TEXT_MUTED, bg=BG_MAIN, wraplength=500,
+            font=(FONT_FAMILY, 8), fg=TEXT_MUTED, bg=BG_MAIN, wraplength=500,
             justify="left",
         ).pack(anchor="w")
 
