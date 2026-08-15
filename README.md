@@ -1,11 +1,11 @@
-# FileEncryptor GUI
+# FileEncryptor GUI for Windows
 
 FileEncryptor 命令行工具的图形界面封装。提供文件加密、解密和批量处理功能，支持 XChaCha20-Poly1305 和 AEGIS-256 两种加密算法。
 
 ## 目录结构
 
 ```
-FileEncryptor-GUI/
+FileEncryptor-GUI-for-Windows/
 ├── gui.py              # GUI 主程序
 ├── _runner.py          # winpty 桥接脚本（自动调用，无需手动运行）
 ├── 启动GUI.bat         # Windows 启动脚本
@@ -36,7 +36,7 @@ GUI 需要 `FileEncryptor.exe` 才能运行，将 exe 放置在以下任一位�
 
 | 位置 | 说明 |
 |---|---|
-| `FileEncryptor-GUI/` 目录下 | 与 gui.py 同目录 |
+| `FileEncryptor-GUI-for-Windows/` 目录下 | 与 gui.py 同目录 |
 | 项目根目录 | GUI 的父目录 |
 | 祖父目录 | 父目录的父目录 |
 | 系统 PATH | 任意 PATH 路径 |
@@ -45,12 +45,12 @@ GUI 需要 `FileEncryptor.exe` 才能运行，将 exe 放置在以下任一位�
 
 ### 方式一：双击启动脚本（推荐）
 
-双击 `FileEncryptor-GUI\启动GUI.bat`，脚本会自动查找可用的 Python 解释器并启动 GUI。
+双击 `FileEncryptor-GUI-for-Windows\启动GUI.bat`，脚本会自动查找可用的 Python 解释器并启动 GUI。
 
 ### 方式二：命令行
 
 ```bash
-cd FileEncryptor-GUI
+cd FileEncryptor-GUI-for-Windows
 python gui.py
 ```
 
@@ -124,7 +124,7 @@ python -c "import tkinter; import winpty; print('OK')"
 
 **Q: 提示 "FileEncryptor.exe not found"**
 
-A: 将 `FileEncryptor.exe` 放在 `FileEncryptor-GUI/` 目录下，或放在项目根目录。
+A: 将 `FileEncryptor.exe` 放在 `FileEncryptor-GUI-for-Windows/` 目录下，或放在项目根目录。
 
 **Q: 加密/解密没有反应**
 
