@@ -1143,18 +1143,6 @@ class FileEncryptorGUI:
         self.enc_del_cb.pack(side="left")
         row += 1
 
-        # 断点续传选项
-        resume_row = tk.Frame(form, bg=BG_CARD)
-        resume_row.grid(row=row, column=0, columnspan=3, sticky="w", pady=(0, 8))
-        self.enc_resume_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(
-            resume_row, text="断点续传（中断后继续加密，需引擎 v1.4.1+）",
-            variable=self.enc_resume_var,
-            font=FONT_SM, fg=TEXT_DARK, bg=BG_CARD,
-            activebackground=BG_CARD, relief="flat", bd=0,
-        ).pack(side="left")
-        row += 1
-
         # 输出目录
         self.enc_out = FileSelector(form, "输出目录（留空为源文件所在目录）", is_dir=True)
         self.enc_out.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 4))
@@ -1296,14 +1284,6 @@ class FileEncryptorGUI:
             fg=TEXT_DARK, bg=BG_CARD,
             activebackground=BG_CARD, relief="flat", bd=0,
         ).pack(side="left", padx=(0, 16))
-
-        self.benc_resume_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(
-            opt_row2, text="断点续传（实验性）", font=FONT_SM,
-            variable=self.benc_resume_var,
-            fg=TEXT_DARK, bg=BG_CARD,
-            activebackground=BG_CARD, relief="flat", bd=0,
-        ).pack(side="left")
 
         self.benc_out = FileSelector(form, "输出目录", is_dir=True)
         self.benc_out.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 4))
@@ -1519,7 +1499,6 @@ class FileEncryptorGUI:
         out = self.enc_out.get().strip()
         algo = self.enc_algo.get()
         delete = self.enc_del_var.get()
-        resume = self.enc_resume_var.get()
 
         if not src:
             messagebox.showwarning("提示", "请选择要加密的文件")
@@ -1547,8 +1526,6 @@ class FileEncryptorGUI:
             args += ["-m", "xchacha20"]
         if delete:
             args.append("-de")
-        if resume:
-            args.append("-r")
         args.append("-y")
 
         self._run_async_stream(
@@ -1605,7 +1582,6 @@ class FileEncryptorGUI:
         algo = self.benc_algo.get()
         threads = self.benc_threads.get()
         delete = self.benc_del_var.get()
-        resume = self.benc_resume_var.get()
 
         if not src:
             messagebox.showwarning("提示", "请选择源目录")
@@ -1630,8 +1606,6 @@ class FileEncryptorGUI:
             args += ["-j", threads]
         if delete:
             args.append("-de")
-        if resume:
-            args.append("-r")
         args.append("-y")
 
         self._run_async_stream(

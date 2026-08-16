@@ -100,17 +100,13 @@ Passwords are not passed via command-line arguments (on Linux, `/proc/<pid>/cmdl
 
 Select a source file → enter the password (twice) → choose the algorithm → start encrypting. Output is `.ptd` format.
 
-Optionally check "resume" to continue an interrupted encryption (see notes below).
-
 ### 2. Decrypt a Single File
 
 Select a `.ptd` file → enter the password → start decrypting.
 
 ### 3. Batch-Encrypt a Directory
 
-Select a source directory → enter the password → set thread count → start. Recursively encrypts all files in the directory.
-
-Optionally check "resume" to continue an interrupted encryption (see notes below).
+Select a source directory → enter the password → set thread count → start. Recursively encrypts all files in the directory. If a `.progress` file is detected, the engine will automatically resume from where it left off.
 
 ### 4. Batch-Decrypt a Directory
 
@@ -142,7 +138,7 @@ Select a directory containing `.ptd` files → enter the password → set thread
 - **Drag & drop**: drop files onto the field (requires tkinterdnd2)
 - **Config persistence**: user preferences auto-saved to `config.ini`
 
-> Engine version requirements: both Windows and Linux need **v1.4.1+** (v1.3.0+ for XChaCha20-Poly1305 / AEGIS-256 algorithm selection; v1.4.1 fixes the resume progress-file write issue).
+> Engine version requirements: both Windows and Linux need **v1.4.1+** (v1.3.0+ for XChaCha20-Poly1305 / AEGIS-256 algorithm selection; resume is automatic in batch mode, no extra parameter needed).
 
 ## Notes
 
@@ -150,7 +146,7 @@ Select a directory containing `.ptd` files → enter the password → set thread
 - **Delete source after encryption**: when checked, the original file is deleted after successful encryption. Confirm encryption succeeded before using this
 - **Empty output directory**: defaults to the source file's directory
 - **Algorithm selection**: XChaCha20-Poly1305 is the default; AEGIS-256 suits CPUs with the required instruction set and falls back automatically if unsupported
-- **Resume**: when checked, an interrupted encryption can be continued. Requires engine **v1.4.1+** (earlier versions had a known progress-file write issue on Windows, see [Issue #4](https://github.com/Texas-albe/FileEncryptor/issues/4), fixed in v1.4.1). **Unchecked by default** — consider confirming encryption succeeded before relying on it for important files
+- **Resume**: in batch mode, if a `.progress` file is detected, the engine automatically continues from where it left off (single-file mode does not support resume). No manual configuration needed
 - **Linux fonts**: the UI defaults to DejaVu Sans (bundled with mainstream distros); it falls back to the default font if missing
 
 ## FAQ
