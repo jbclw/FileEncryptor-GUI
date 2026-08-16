@@ -51,8 +51,8 @@ Get the encryption engine from the [original project Releases](https://github.co
 
 | Platform | Engine name | Notes |
 |---|---|---|
-| Windows | `FileEncryptor.exe` | v1.2.0 or later |
-| Linux | `FileEncryptor` | **v1.4.0 or later** (self-contained DEB/RPM packages; after install it's usually at `/usr/bin/FileEncryptor`, which the GUI can find via PATH) |
+| Windows | `FileEncryptor.exe` | **v1.4.1 or later** |
+| Linux | `FileEncryptor` | **v1.4.1 or later** (self-contained DEB/RPM packages; after install it's usually at `/usr/bin/FileEncryptor`, which the GUI can find via PATH) |
 
 Search locations (in priority order):
 
@@ -142,7 +142,7 @@ Select a directory containing `.ptd` files → enter the password → set thread
 - **Drag & drop**: drop files onto the field (requires tkinterdnd2)
 - **Config persistence**: user preferences auto-saved to `config.ini`
 
-> Engine version requirements: Windows needs `FileEncryptor.exe` **v1.2.0+** (v1.3.0+ for XChaCha20-Poly1305 / AEGIS-256 algorithm selection); Linux needs **v1.4.0+**.
+> Engine version requirements: both Windows and Linux need **v1.4.1+** (v1.3.0+ for XChaCha20-Poly1305 / AEGIS-256 algorithm selection; v1.4.1 fixes the resume progress-file write issue).
 
 ## Notes
 
@@ -150,7 +150,7 @@ Select a directory containing `.ptd` files → enter the password → set thread
 - **Delete source after encryption**: when checked, the original file is deleted after successful encryption. Confirm encryption succeeded before using this
 - **Empty output directory**: defaults to the source file's directory
 - **Algorithm selection**: XChaCha20-Poly1305 is the default; AEGIS-256 suits CPUs with the required instruction set and falls back automatically if unsupported
-- **Resume (experimental)**: when checked, an interrupted encryption can be continued. This feature has known issues (see [Issue #4](https://github.com/Texas-albe/FileEncryptor/issues/4)) and may corrupt data. **Unchecked by default** — use only when you understand the risks and need to handle large files. Consider disabling it for important files
+- **Resume**: when checked, an interrupted encryption can be continued. Requires engine **v1.4.1+** (earlier versions had a known progress-file write issue on Windows, see [Issue #4](https://github.com/Texas-albe/FileEncryptor/issues/4), fixed in v1.4.1). **Unchecked by default** — consider confirming encryption succeeded before relying on it for important files
 - **Linux fonts**: the UI defaults to DejaVu Sans (bundled with mainstream distros); it falls back to the default font if missing
 
 ## FAQ
@@ -173,4 +173,4 @@ A: Install the distro's tkinter package (see Requirements). On Linux, tkinter is
 
 **Q: Encrypt/Decrypt does nothing**
 
-A: Check the log area. Common causes: wrong password, an existing file with the same name in the output directory, or an incompatible engine version (on Linux, confirm you're using v1.4.0+).
+A: Check the log area. Common causes: wrong password, an existing file with the same name in the output directory, or an incompatible engine version (confirm you're using v1.4.1+).

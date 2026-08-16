@@ -919,7 +919,7 @@ class FileEncryptorGUI:
         ver_frame = tk.Frame(sidebar, bg=BG_SIDEBAR)
         ver_frame.grid(row=10, column=0, sticky="ew")
         ver = tk.Label(
-            ver_frame, text="v1.1.1 \u00b7 libsodium",
+            ver_frame, text="v1.4.1 \u00b7 libsodium",
             font=(FONT_FAMILY, 8), fg="#5a544c",
             bg=BG_SIDEBAR, anchor="w", padx=18, pady=12,
         )
@@ -1148,7 +1148,7 @@ class FileEncryptorGUI:
         resume_row.grid(row=row, column=0, columnspan=3, sticky="w", pady=(0, 8))
         self.enc_resume_var = tk.BooleanVar(value=False)
         tk.Checkbutton(
-            resume_row, text="断点续传（实验性功能，中断后继续加密）",
+            resume_row, text="断点续传（中断后继续加密，需引擎 v1.4.1+）",
             variable=self.enc_resume_var,
             font=FONT_SM, fg=TEXT_DARK, bg=BG_CARD,
             activebackground=BG_CARD, relief="flat", bd=0,

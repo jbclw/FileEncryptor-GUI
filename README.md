@@ -51,8 +51,8 @@ pip install pywinpty psutil
 
 | 平台 | 引擎文件名 | 说明 |
 |---|---|---|
-| Windows | `FileEncryptor.exe` | v1.2.0 及以上版本 |
-| Linux | `FileEncryptor` | **v1.4.0 及以上版本**（提供自包含 DEB/RPM 包，安装后通常位于 `/usr/bin/FileEncryptor`，GUI 也能从 PATH 找到） |
+| Windows | `FileEncryptor.exe` | **v1.4.1 及以上版本** |
+| Linux | `FileEncryptor` | **v1.4.1 及以上版本**（提供自包含 DEB/RPM 包，安装后通常位于 `/usr/bin/FileEncryptor`，GUI 也能从 PATH 找到） |
 
 查找位置（按优先级）：
 
@@ -142,7 +142,7 @@ GUI 与命令行引擎之间的密码注入通过伪终端（PTY）实现，按�
 - **拖放支持**：支持将文件拖放到文件选择框（需安装 tkinterdnd2）
 - **配置持久化**：用户偏好设置自动保存到 `config.ini`
 
-> 引擎版本要求：Windows 需 `FileEncryptor.exe` **v1.2.0+**（v1.3.0+ 以支持 XChaCha20-Poly1305 / AEGIS-256 算法选择）；Linux 需 **v1.4.0+**。
+> 引擎版本要求：Windows 与 Linux 均需 **v1.4.1+**（v1.3.0+ 支持 XChaCha20-Poly1305 / AEGIS-256 算法选择；v1.4.1 修复了断点续传进度文件写入问题）。
 
 ## 注意事项
 
@@ -150,7 +150,7 @@ GUI 与命令行引擎之间的密码注入通过伪终端（PTY）实现，按�
 - **加密后删除源文件**：勾选后加密完成会自动删除原始文件，建议先确认加密成功再使用此功能
 - **输出目录留空**：默认输出到源文件所在目录
 - **算法选择**：默认使用 XChaCha20-Poly1305；AEGIS-256 适用于支持该指令集的 CPU，如不支持将自动回退
-- **断点续传（实验性功能）**：勾选后可在中断后继续加密，但此功能目前存在已知问题（参见 [Issue #4](https://github.com/Texas-albe/FileEncryptor/issues/4)），可能导致数据损坏。**默认不勾选**，仅在明确了解风险且需要处理大文件时使用。建议重要文件先关闭此功能
+- **断点续传**：勾选后可在中断后继续加密。需引擎 **v1.4.1+**（早期版本在 Windows 下存在进度文件写入失败的已知问题，参见 [Issue #4](https://github.com/Texas-albe/FileEncryptor/issues/4)，该问题已在 v1.4.1 修复）。**默认不勾选**，建议重要文件先确认加密成功后再使用
 - **Linux 字体**：界面默认使用 DejaVu Sans（主流发行版自带）；若系统缺失会自动回退到默认字体
 
 ## 常见问题
@@ -173,4 +173,4 @@ A: 安装发行版对应的 tkinter 包（见"环境要求"），Linux 上 tkint
 
 **Q: 加密/解密没有反应**
 
-A: 检查日志区的输出信息。常见原因：密码输入错误、输出目录已存在同名文件、引擎版本不兼容（Linux 请确认使用 v1.4.0+）。
+A: 检查日志区的输出信息。常见原因：密码输入错误、输出目录已存在同名文件、引擎版本不兼容（请确认使用 v1.4.1+）。
