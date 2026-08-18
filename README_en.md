@@ -36,14 +36,20 @@ FileEncryptor-GUI/
 
 ```bash
 # Windows: pywinpty required (PTY password injection); psutil optional
-pip install pywinpty psutil
+pip install pywinpty psutil customtkinter
 
-# Linux: no extra dependencies (uses Python's built-in pty module)
+# Linux: customtkinter required (modern UI framework)
+pip install customtkinter
 # psutil is optional: pip install psutil
+
+# Experimental "image background + blur" feature needs Pillow (optional)
+pip install pillow
 ```
 
+- **customtkinter** (both platforms) — modern UI framework with rounded widgets and dark theme support
 - **pywinpty** (Windows only) — injects the password through ConPTY (solves `_getch()` not reading stdin)
 - **psutil** (optional, both platforms) — more reliable child-process exit detection
+- **Pillow** (optional, both platforms) — powers the experimental "image background + blur" theme (disabled automatically when not installed)
 
 ### 3. FileEncryptor Engine
 
@@ -137,8 +143,27 @@ Select a directory containing `.ptd` files → enter the password → set thread
 - **Paste path**: right-click in a file field to paste the clipboard path
 - **Drag & drop**: drop files onto the field (requires tkinterdnd2)
 - **Config persistence**: user preferences auto-saved to `config.ini`
+- **Language switch**: choose "中文 / English" in the settings area to switch the UI language instantly
+- **Theme switch**: toggle between the two preset light/dark themes in the settings area
 
 > Engine version requirements: both Windows and Linux need **v1.4.1+** (v1.3.0+ for XChaCha20-Poly1305 / AEGIS-256 algorithm selection; resume is automatic in batch mode, no extra parameter needed).
+
+### Experimental: image background
+
+In the "Experimental" card of the settings page you can:
+
+- **Enable image background**: pick a local image as the wallpaper (a built-in gradient is used if none is chosen).
+- **Ignores theme colors**: while enabled, the interface no longer follows the light/dark theme (the theme dropdown is disabled).
+- **Frosted-glass panels**: the sidebar and content panels themselves are translucent "frosted glass" — they show a real Gaussian-blurred crop of the wallpaper beneath them; the wallpaper is only exposed around the window edges.
+- **Color-sampled pseudo-transparency**: controls that cannot be truly transparent (cards, entries, the log box) take their base color from the wallpaper tone at their location (frosted white cards, dark glass log box) so everything blends into the background.
+- **Wallpaper blur / Panel blur**: two independent sliders (0–50), each with a numeric box for typing an exact value; panel blur 0 makes the panels fully transparent (wallpaper shown clearly). Text is never blurred.
+
+> **About "transparency" (important)**
+> CustomTkinter widgets do not support real background transparency, so:
+> - **Structural panels** (sidebar, content area, per-page cards) are `tk.Canvas` that draw the **blurred crop** of the wallpaper at their location, producing genuine frosted glass;
+> - **Controls that cannot be transparent** (cards, entries, the log box) use **color-sampled pseudo-transparency**: they take the wallpaper tone at their location as a base color (frosted white cards, dark glass log box) — an approximation, not pixel-level transparency.
+>
+> **Performance strategy**: the sharp wallpaper is generated once and cached; widgets to tint are registered once by index (`id -> widget`) and only sampled from the cache afterwards (no full `cget` pass); dragging a slider only re-renders the panel/wallpaper layer, never triggers a full window re-render, and never repeatedly reloads (the infinite retry loop was removed — it now only re-tints one idle frame if the layout is not yet stable).
 
 ## Notes
 
@@ -170,3 +195,17 @@ A: Install the distro's tkinter package (see Requirements). On Linux, tkinter is
 **Q: Encrypt/Decrypt does nothing**
 
 A: Check the log area. Common causes: wrong password, an existing file with the same name in the output directory, or an incompatible engine version (confirm you're using v1.4.1+).
+
+## Credits
+
+This project builds a GUI around the [FileEncryptor](https://github.com/Texas-albe/FileEncryptor) CLI engine and uses the following open-source projects. Many thanks to all their authors and maintainers:
+
+| Project | Used for | Link |
+|---|---|---|
+| FileEncryptor | Underlying encryption engine (XChaCha20-Poly1305 / AEGIS-256) | [GitHub](https://github.com/Texas-albe/FileEncryptor) |
+| CustomTkinter | Modern GUI widget framework | [GitHub](https://github.com/TomSchimansky/CustomTkinter) |
+| pywinpty | Windows pseudo-terminal (ConPTY) password injection | [GitHub](https://github.com/spyder-ide/pywinpty) |
+| Pillow | Image background & blur (experimental theme) | [GitHub](https://github.com/python-pillow/Pillow) |
+| psutil | Child-process monitoring (optional) | [GitHub](https://github.com/giampaolo/psutil) |
+| tkinterdnd2 | File drag & drop support (optional) | [GitHub](https://github.com/Eliav2/tkinterdnd2) |
+| libsodium | Low-level crypto primitives for the engine | [GitHub](https://github.com/jedisct1/libsodium) |
