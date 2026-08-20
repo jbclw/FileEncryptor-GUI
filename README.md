@@ -21,13 +21,13 @@ FileEncryptor-GUI/
 │       ├── pages.py     #   页面组件
 │       ├── theme.py     #   主题管理
 │       └── widgets.py   #   控件库
-├── tests/               # pytest 单元测试 + 无头冒烟
 ├── 启动GUI.bat          # Windows 启动脚本
 ├── 启动GUI.sh           # Linux 启动脚本
-├── FileEncryptor.exe    # 加密引擎（Windows，需自行获取）
-├── FileEncryptor        # 加密引擎（Linux，需自行获取）
-└── README.md
+├── .gitignore / .gitattributes
+└── README.md / README_en.md
 ```
+
+> `tests/`（pytest 单元测试 + 无头冒烟）仅存于本地开发环境，**不随仓库分发**；`FileEncryptor.exe` / `FileEncryptor` 加密引擎需按下方说明自行获取放置，**不随仓库分发**。
 
 ## 环境要求
 
@@ -76,7 +76,7 @@ pip install pillow
 
 | 位置 | 说明 |
 |---|---|
-| `FileEncryptor-GUI/` 目录下 | 与 gui.py 同目录 |
+| `FileEncryptor-GUI/` 目录下 | 与启动脚本同目录 |
 | 项目根目录 | GUI 的父目录 |
 | 祖父目录 | 父目录的父目录 |
 | 系统 PATH | 任意 PATH 路径 |
@@ -91,7 +91,7 @@ pip install pillow
 
 ```bash
 cd FileEncryptor-GUI
-python gui.py
+python -m app.ui.gui
 ```
 
 ### Linux

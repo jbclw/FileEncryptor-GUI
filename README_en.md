@@ -21,13 +21,13 @@ FileEncryptor-GUI/
 │       ├── pages.py     #   page components
 │       ├── theme.py     #   theme management
 │       └── widgets.py   #   widget library
-├── tests/               # pytest unit tests + headless smoke
 ├── 启动GUI.bat          # Windows launcher
 ├── 启动GUI.sh           # Linux launcher
-├── FileEncryptor.exe    # Encryption engine (Windows, obtain separately)
-├── FileEncryptor        # Encryption engine (Linux, obtain separately)
-└── README.md
+├── .gitignore / .gitattributes
+└── README.md / README_en.md
 ```
+
+> `tests/` (pytest unit tests + headless smoke) exists only in the local dev environment and is **not distributed with the repo**; the `FileEncryptor.exe` / `FileEncryptor` engine must be obtained and placed as described below, and is **not distributed with the repo**.
 
 ## Requirements
 
@@ -76,7 +76,7 @@ Search locations (in priority order):
 
 | Location | Notes |
 |---|---|
-| `FileEncryptor-GUI/` directory | Same directory as gui.py |
+| `FileEncryptor-GUI/` directory | Same directory as the launcher scripts |
 | Project root | Parent of the GUI |
 | Grandparent directory | Parent of the parent |
 | System PATH | Any PATH entry |
@@ -91,7 +91,7 @@ Double-click `FileEncryptor-GUI\启动GUI.bat` (recommended), or:
 
 ```bash
 cd FileEncryptor-GUI
-python gui.py
+python -m app.ui.gui
 ```
 
 ### Linux
