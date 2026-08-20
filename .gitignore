@@ -6,6 +6,10 @@ __pycache__/
 *.pyc
 *.pyo
 
+# 虚拟环境与测试缓存
+.venv/
+.pytest_cache/
+
 # 系统文件
 Thumbs.db
 .DS_Store

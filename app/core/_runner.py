@@ -17,6 +17,13 @@ Usage:
 Passwords are passed via environment variables FE_GUI_PW1 / FE_GUI_PW2
 (/proc/<pid>/environ is only readable by the owner, safer than argv).
 
+Cancellation is handled via the environment variable FE_GUI_CANCEL, which
+holds the path to a cancel signal file. The GUI writes that file to request
+a stop; this script detects it during its polling loop, kills the engine and
+exits immediately (~30ms). A file (not a signal) is used so behaviour is
+identical on Windows and POSIX, and so the engine is always killed as a
+child of this process rather than left orphaned.
+
 Output format:
     Normal lines: raw program output
     Final line: __EXIT__:<code>
@@ -175,6 +182,8 @@ def main():
     # 密码经环境变量传递（比命令行参数安全，见文件头说明）
     password = os.environ.get("FE_GUI_PW1") or None
     password2 = os.environ.get("FE_GUI_PW2") or None
+    # 取消信号文件路径：GUI 写入该文件即请求取消（详见文件头"取消机制"注释）
+    cancel_path = os.environ.get("FE_GUI_CANCEL") or None
     overwrite = sys.argv[3] if len(sys.argv) > 3 else None
     fallback = sys.argv[4] if len(sys.argv) > 4 else None
     timeout = float(sys.argv[5]) if len(sys.argv) > 5 else 300
@@ -220,6 +229,13 @@ def main():
             proc.kill()
             sys.stdout.write("__ERR__:timeout\n")
             sys.stdout.flush()
+            break
+
+        # 取消检查：GUI 写入取消文件即请求终止。
+        # 命中后 kill 引擎直接 break，走文件尾 __EXIT__:-1，规避正常退出路径
+        # 中 sleep(0.3) 与 psutil.wait(timeout=2) 的等待，保证取消即时（~30ms）。
+        if cancel_path and os.path.exists(cancel_path):
+            proc.kill()
             break
 
         # 读取新输出

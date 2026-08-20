@@ -8,12 +8,24 @@ FileEncryptor 命令行工具的图形界面封装，**支持 Windows 与 Linux*
 
 ```
 FileEncryptor-GUI/
-├── gui.py              # GUI 主程序
-├── _runner.py          # 伪终端桥接脚本（自动调用，无需手动运行）
-├── 启动GUI.bat         # Windows 启动脚本
-├── 启动GUI.sh          # Linux 启动脚本
-├── FileEncryptor.exe   # 加密引擎（Windows，需自行获取）
-├── FileEncryptor       # 加密引擎（Linux，需自行获取）
+├── app/
+│   ├── core/            # 纯逻辑层（无 GUI 依赖，可单测）
+│   │   ├── args.py      #   参数构建 + 输入校验
+│   │   ├── config.py    #   配置读写
+│   │   ├── engine.py    #   引擎服务层（查找 + 流式执行 + 取消）
+│   │   ├── i18n.py      #   多语言
+│   │   ├── strength.py  #   密码强度
+│   │   └── _runner.py   #   伪终端桥接脚本（自动调用，无需手动运行）
+│   └── ui/              # 界面层
+│       ├── gui.py       #   GUI 主程序
+│       ├── pages.py     #   页面组件
+│       ├── theme.py     #   主题管理
+│       └── widgets.py   #   控件库
+├── tests/               # pytest 单元测试 + 无头冒烟
+├── 启动GUI.bat          # Windows 启动脚本
+├── 启动GUI.sh           # Linux 启动脚本
+├── FileEncryptor.exe    # 加密引擎（Windows，需自行获取）
+├── FileEncryptor        # 加密引擎（Linux，需自行获取）
 └── README.md
 ```
 
@@ -88,7 +100,7 @@ python gui.py
 cd FileEncryptor-GUI
 ./启动GUI.sh          # 首次使用先赋权：chmod +x 启动GUI.sh
 # 或直接
-python3 gui.py
+python3 -m app.ui.gui
 ```
 
 ## 跨平台实现说明

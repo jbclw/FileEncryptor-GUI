@@ -62,7 +62,7 @@ echo.
 echo Starting GUI...
 echo.
 
-%PY% "%~dp0gui.py"
+%PY% -m app.ui.gui
 
 if errorlevel 1 (
     echo.

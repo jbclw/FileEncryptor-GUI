@@ -32,4 +32,4 @@ if ! "$PY" -c "import tkinter" 2>/dev/null; then
     exit 1
 fi
 
-exec "$PY" gui.py "$@"
+exec "$PY" -m app.ui.gui "$@"

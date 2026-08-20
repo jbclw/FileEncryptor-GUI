@@ -8,12 +8,24 @@ A graphical interface wrapper for the FileEncryptor command-line tool, **support
 
 ```
 FileEncryptor-GUI/
-├── gui.py              # GUI main program
-├── _runner.py          # Pseudo-terminal bridge script (auto-invoked, no manual run)
-├── 启动GUI.bat         # Windows launcher
-├── 启动GUI.sh          # Linux launcher
-├── FileEncryptor.exe   # Encryption engine (Windows, obtain separately)
-├── FileEncryptor       # Encryption engine (Linux, obtain separately)
+├── app/
+│   ├── core/            # Pure logic layer (no GUI deps, unit-testable)
+│   │   ├── args.py      #   arg building + input validation
+│   │   ├── config.py    #   config read/write
+│   │   ├── engine.py    #   engine service (locate + stream + cancel)
+│   │   ├── i18n.py      #   localization
+│   │   ├── strength.py  #   password strength
+│   │   └── _runner.py   #   pseudo-terminal bridge (auto-invoked, no manual run)
+│   └── ui/              # UI layer
+│       ├── gui.py       #   GUI main program
+│       ├── pages.py     #   page components
+│       ├── theme.py     #   theme management
+│       └── widgets.py   #   widget library
+├── tests/               # pytest unit tests + headless smoke
+├── 启动GUI.bat          # Windows launcher
+├── 启动GUI.sh           # Linux launcher
+├── FileEncryptor.exe    # Encryption engine (Windows, obtain separately)
+├── FileEncryptor        # Encryption engine (Linux, obtain separately)
 └── README.md
 ```
 
@@ -88,7 +100,7 @@ python gui.py
 cd FileEncryptor-GUI
 ./启动GUI.sh          # first time: chmod +x 启动GUI.sh
 # or directly
-python3 gui.py
+python3 -m app.ui.gui
 ```
 
 ## Cross-Platform Implementation
