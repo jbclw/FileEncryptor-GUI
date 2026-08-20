@@ -9,7 +9,7 @@ FileEncryptor 命令行工具的图形界面封装，**支持 Windows 与 Linux*
 ```
 FileEncryptor-GUI/
 ├── app/
-│   ├── core/            # 纯逻辑层（无 GUI 依赖，可单测）
+│   ├── core/            # 纯逻辑层
 │   │   ├── args.py      #   参数构建 + 输入校验
 │   │   ├── config.py    #   配置读写
 │   │   ├── engine.py    #   引擎服务层（查找 + 流式执行 + 取消）
