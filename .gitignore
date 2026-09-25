@@ -16,3 +16,5 @@ Thumbs.db
 
 # 运行时生成的本地配置（窗口状态/主题/壁纸路径等，因人而异）
 config.ini
+# 引擎首次运行自动生成的运维配置（worker_threads 等）
+fileencryptor.yaml

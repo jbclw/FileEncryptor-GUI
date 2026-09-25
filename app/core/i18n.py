@@ -1,13 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-i18n.py —— 多语言翻译（纯逻辑，第 2 步抽取）
-
-把 STRINGS 翻译表与 tr()/apply_lang() 从 GUI 层抽出，使语言切换逻辑可独立测试。
-GUI 层只调用 tr(key) 取文本；控件只存翻译键 key，不存渲染后的字符串，
-语言切换统一由 GUI 的 _apply_settings 全量重建触发。
-"""
-# 居中：zh（简体中文）/ en（English）
 STRINGS = {
     "zh": {
         "app_subtitle": "文件加密工具",
@@ -48,7 +38,6 @@ STRINGS = {
         "batch_enc": "批量加密目录",
         "batch_enc_desc": "递归加密整个目录下所有文件为 .ptd 格式",
         "source_dir": "源目录",
-        "threads": "线程数",
         "start_batch_enc": "开始批量加密",
         "batch_dec": "批量解密目录",
         "batch_dec_desc": "递归解密目录下所有 .ptd 文件还原为原始文件",
@@ -126,7 +115,6 @@ STRINGS = {
         "batch_enc": "Encrypt Directory",
         "batch_enc_desc": "Recursively encrypt all files in the directory to .ptd",
         "source_dir": "Source Directory",
-        "threads": "Threads",
         "start_batch_enc": "Batch Encrypt",
         "batch_dec": "Decrypt Directory",
         "batch_dec_desc": "Recursively decrypt all .ptd files in the directory",
@@ -166,28 +154,18 @@ STRINGS = {
         "msg_need_pillow": "Image background needs Pillow. Install with: pip install pillow",
     },
 }
-
-
 _LANG = "zh"
 
-
 def available_langs():
-    """返回当前支持的翻译语言列表。"""
     return list(STRINGS.keys())
-
 
 def get_lang():
     return _LANG
 
-
 def set_lang(lang):
-    """切换当前语言。仅接受已知语言，否则保持原语言。"""
     global _LANG
     if lang in STRINGS:
         _LANG = lang
 
-
 def tr(key):
-    """返回当前语言下的翻译文本（无则原样返回 key）。"""
-    table = STRINGS.get(_LANG) or STRINGS["zh"]
-    return table.get(key, key)
+    return STRINGS[_LANG].get(key, key)

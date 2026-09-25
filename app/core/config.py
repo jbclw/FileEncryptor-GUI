@@ -1,23 +1,10 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-config.py —— 用户配置持久化（纯逻辑，第 2 步抽取）
-
-把 ConfigManager（configparser 封装）与全局单例 get_config() 从 GUI 层抽出，
-使配置读写可独立测试。GUI 层只调用 get_config() 获取/保存设置。
-"""
 import os
 import configparser
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-# config.ini 保持在项目根（app/core 的上级上级，与启动脚本/venv 同级），
-# 避免随源码移入子包后用户本地配置位置漂移。
 _CONFIG_DIR = os.path.abspath(os.path.join(_SCRIPT_DIR, "..", ".."))
 
-
 class ConfigManager:
-    """管理用户配置持久化"""
-
     def __init__(self, config_file=None):
         self.config_file = config_file or os.path.join(_CONFIG_DIR, "config.ini")
         self.config = configparser.ConfigParser()
@@ -63,10 +50,7 @@ class ConfigManager:
     def save(self):
         self._save_config()
 
-
-# 全局配置实例
 _config = None
-
 
 def get_config():
     global _config

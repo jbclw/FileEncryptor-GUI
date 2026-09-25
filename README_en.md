@@ -69,8 +69,8 @@ Get the encryption engine from the [original project Releases](https://github.co
 
 | Platform | Engine name | Notes |
 |---|---|---|
-| Windows | `FileEncryptor.exe` | **v1.4.1 or later** |
-| Linux | `FileEncryptor` | **v1.4.1 or later** (self-contained DEB/RPM packages; after install it's usually at `/usr/bin/FileEncryptor`, which the GUI can find via PATH) |
+| Windows | `FileEncryptor.exe` | **Official CLI 2.4.0** (the separate CLI component of the original project) |
+| Linux | `FileEncryptor` | **Official CLI 2.4.0** (self-contained DEB/RPM packages; after install it's usually at `/usr/bin/FileEncryptor`, which the GUI can find via PATH) |
 
 Search locations (in priority order):
 
@@ -124,11 +124,11 @@ Select a `.ptd` file → enter the password → start decrypting.
 
 ### 3. Batch-Encrypt a Directory
 
-Select a source directory → enter the password → set thread count → start. Recursively encrypts all files in the directory. If a `.progress` file is detected, the engine will automatically resume from where it left off.
+Select a source directory → enter the password → choose an algorithm → start. Recursively encrypts all files in the directory (CLI 2.x writes obfuscated output names). If a `.prs` resume file is detected, the engine automatically continues from where it left off. The concurrency is configured via the engine's `fileencryptor.yaml` (`worker_threads`, 0=auto); the GUI no longer provides a thread-count option.
 
 ### 4. Batch-Decrypt a Directory
 
-Select a directory containing `.ptd` files → enter the password → set thread count → start.
+Select a directory containing `.ptd` files → enter the password → start. Original file names are restored automatically.
 
 ### Logging & Progress
 
@@ -158,7 +158,7 @@ Select a directory containing `.ptd` files → enter the password → set thread
 - **Language switch**: choose "中文 / English" in the settings area to switch the UI language instantly
 - **Theme switch**: toggle between the two preset light/dark themes in the settings area
 
-> Engine version requirements: both Windows and Linux need **v1.4.1+** (v1.3.0+ for XChaCha20-Poly1305 / AEGIS-256 algorithm selection; resume is automatic in batch mode, no extra parameter needed).
+> Engine version requirements: both Windows and Linux need **Official CLI 2.4.0** (format v6; operational parameters such as thread count are configured via the engine's `fileencryptor.yaml`; batch decrypt restores original names via `-rn`).
 
 ### Experimental: image background
 
@@ -183,7 +183,8 @@ In the "Experimental" card of the settings page you can:
 - **Delete source after encryption**: when checked, the original file is deleted after successful encryption. Confirm encryption succeeded before using this
 - **Empty output directory**: defaults to the source file's directory
 - **Algorithm selection**: XChaCha20-Poly1305 is the default; AEGIS-256 suits CPUs with the required instruction set and falls back automatically if unsupported
-- **Resume**: in batch mode, if a `.progress` file is detected, the engine automatically continues from where it left off (single-file mode does not support resume). No manual configuration needed
+- **Resume**: in batch mode, if a `.prs` file is detected, the engine automatically continues from where it left off (single-file mode does not support resume). No manual configuration needed
+- **Single-file encryption uses an obfuscated output name**: CLI 2.x obfuscates output names by default (hex name + `.ptd`); after a successful run the GUI logs the output location
 - **Linux fonts**: the UI defaults to DejaVu Sans (bundled with mainstream distros); it falls back to the default font if missing
 
 ## FAQ
@@ -206,7 +207,7 @@ A: Install the distro's tkinter package (see Requirements). On Linux, tkinter is
 
 **Q: Encrypt/Decrypt does nothing**
 
-A: Check the log area. Common causes: wrong password, an existing file with the same name in the output directory, or an incompatible engine version (confirm you're using v1.4.1+).
+A: Check the log area. Common causes: wrong password, an existing file with the same name in the output directory, or an incompatible engine version (confirm you're using Official CLI 2.4.0).
 
 ## Credits
 

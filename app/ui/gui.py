@@ -1006,9 +1006,31 @@ class FileEncryptorGUI:
                     if _engine_service.cancelled:
                         cancelled = True
 
-                # 未取消失败（-1）时视为引擎无显式退出码 => 成功
-                if exit_code == -1 and not cancelled:
-                    exit_code = 0
+                # 检查输出是否实际生成（g3 修复；GUI 的 -o 一律为目录选择器）
+                if exit_code == 0 and not cancelled:
+                    # 从 args 中提取输出路径
+                    output_path = None
+                    if "-o" in args:
+                        idx = args.index("-o")
+                        if idx + 1 < len(args):
+                            output_path = args[idx + 1]
+
+                    if output_path:
+                        if os.path.isdir(output_path):
+                            # 目录输出：CLI 2.x 单文件输出名混淆，无法预知确切文件名，视为成功
+                            pass
+                        elif not os.path.isfile(output_path) or os.path.getsize(output_path) == 0:
+                            exit_code = -1
+                            self.root.after(0, self._log, f"[!] 输出文件不存在或为空: {output_path}")
+
+                    # 单文件加密：CLI 2.x 默认混淆输出名（十六进制），提示用户查看输出位置
+                    if args and args[0] == "-e":
+                        if output_path and os.path.isdir(output_path):
+                            self.root.after(0, self._log,
+                                            f"[i] 输出文件以混淆名保存在输出目录: {output_path}")
+                        else:
+                            self.root.after(0, self._log,
+                                            f"[i] 输出文件以混淆名保存在源目录: {os.path.dirname(args[1])}")
 
             except Exception as e:
                 exit_code = -1
@@ -1098,7 +1120,6 @@ class FileEncryptorGUI:
         pw2 = self.benc_pw2.get()
         out = self.benc_out.get().strip()
         algo = self.benc_algo.get()
-        threads = self.benc_threads.get()
         delete = self.benc_del_var.get()
 
         if self._show_errors(validate_batch_encrypt_inputs(src, pw, pw2)):
@@ -1106,7 +1127,7 @@ class FileEncryptorGUI:
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_batch_encrypt_args(src, out, algo, threads, delete)
+        args = build_batch_encrypt_args(src, out, algo, delete)
 
         self._run_async_stream(
             args,
@@ -1121,14 +1142,13 @@ class FileEncryptorGUI:
         src = self.bdec_dir.get().strip()
         pw = self.bdec_pw.get()
         out = self.bdec_out.get().strip()
-        threads = self.bdec_threads.get()
 
         if self._show_errors(validate_batch_decrypt_inputs(src, pw)):
             return
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_batch_decrypt_args(src, out, threads)
+        args = build_batch_decrypt_args(src, out)
 
         self._run_async_stream(
             args,

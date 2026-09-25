@@ -206,13 +206,6 @@ class BatchEncryptPage(_BasePage):
         self.app.benc_algo.grid(row=0, column=1, sticky="w")
         self.app.benc_algo.set("XChaCha20-Poly1305")
 
-        ctk.CTkLabel(opt_row, text=tr("threads"), font=FONT_SM, text_color=T.TEXT_DARK
-                     ).grid(row=0, column=2, sticky="w", padx=(16, 4))
-        self.app.benc_threads = ctk.CTkComboBox(
-            opt_row, values=["1", "2", "4", "8"], state="readonly", font=FONT, width=60)
-        self.app.benc_threads.grid(row=0, column=3, sticky="w")
-        self.app.benc_threads.set("4")
-
         opt_row2 = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
         opt_row2.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         self.app.benc_del_var = tk.BooleanVar(value=False)
@@ -261,18 +254,8 @@ class BatchDecryptPage(_BasePage):
         self.app.bdec_pw = PasswordEntry(form, tr("dec_password"))
         self.app.bdec_pw.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 8))
 
-        opt_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
-        opt_row.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0, 8))
-        opt_row.columnconfigure(1, weight=1)
-        ctk.CTkLabel(opt_row, text=tr("threads"), font=FONT_SM, text_color=T.TEXT_DARK
-                     ).grid(row=0, column=0, sticky="w", padx=(0, 4))
-        self.app.bdec_threads = ctk.CTkComboBox(
-            opt_row, values=["1", "2", "4", "8"], state="readonly", font=FONT, width=60)
-        self.app.bdec_threads.grid(row=0, column=1, sticky="w")
-        self.app.bdec_threads.set("4")
-
         self.app.bdec_out = FileSelector(form, tr("output_dir"), is_dir=True)
-        self.app.bdec_out.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 4))
+        self.app.bdec_out.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0, 4))
 
         btn_row = ctk.CTkFrame(card, fg_color=T.BG_CARD, corner_radius=0)
         btn_row.grid(row=4, column=0, sticky="e", padx=16, pady=(0, 16))
