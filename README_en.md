@@ -10,11 +10,13 @@ A graphical interface wrapper for the FileEncryptor command-line tool, **support
 FileEncryptor-GUI/
 ├── app/
 │   ├── core/            # Pure logic layer (no GUI deps, unit-testable)
+│   │   ├── about_info.py #   About-page info (engine probe + environment)
 │   │   ├── args.py      #   arg building + input validation
 │   │   ├── config.py    #   config read/write
 │   │   ├── engine.py    #   engine service (locate + stream + cancel)
 │   │   ├── i18n.py      #   localization
 │   │   ├── strength.py  #   password strength
+│   │   ├── version.py   #   single source of version + repo URLs
 │   │   └── _runner.py   #   pseudo-terminal bridge (auto-invoked, no manual run)
 │   └── ui/              # UI layer
 │       ├── gui.py       #   GUI main program
@@ -123,20 +125,26 @@ Optional options:
 - **Delete source after encrypt**: delete the original file once encryption succeeds
 - **Move to Recycle Bin**: move the original file to the system Recycle Bin on success (safer than deleting; takes priority over "Delete source")
 - **Enable zstd compression**: compress with zstd before encrypting (compression level 1–22), greatly shrinking the output for text-like files
+- **Write SHA-256 sidecar**: also write a `<output>.ptd.sha256` checksum file on success
+- **Asymmetric (rage)**: encrypt to a **recipient public key** instead (an `age1…` string or a public key file); no password is needed and the output is a `.age` file. The "Generate keypair" button creates an X25519 pair on the spot (private key saved as `rage_private.txt` in the chosen directory, public key printed in the log). zstd and SHA-256 do not apply in this mode (the engine ignores them)
 
 > You can also use a **key file** instead of a password: pick a file in the "Key file" field and its contents are used as the password (CLI `-k`, read non-interactively); the password field is then ignored.
 
 ### 2. Decrypt a Single File
 
-Select a `.ptd` file → enter the password → start decrypting.
+Select a `.ptd` file → enter the password → start decrypting. To decrypt a rage output (`.age`), tick "rage asymmetric decrypt" and pick the **private key file** (`AGE-SECRET-KEY-…`) in the "Key file" field.
 
 ### 3. Batch-Encrypt a Directory
 
-Select a source directory → enter the password → choose an algorithm → start. Recursively encrypts all files in the directory (CLI 2.x writes obfuscated output names). If a `.prs` resume file is detected, the engine automatically continues from where it left off. The concurrency is configured via the engine's `fileencryptor.yaml` (`worker_threads`, 0=auto); the GUI no longer provides a thread-count option. The same "Delete source / Move to Recycle Bin", zstd compression and key-file options are supported.
+Select a source directory → enter the password → choose an algorithm → start. Recursively encrypts all files in the directory (CLI 2.x writes obfuscated output names). If a `.prs` resume file is detected, the engine automatically continues from where it left off. The concurrency is configured via the engine's `fileencryptor.yaml` (`worker_threads`, 0=auto); the GUI no longer provides a thread-count option. The same "Delete source / Move to Recycle Bin", zstd compression, SHA-256 sidecar and key-file options are supported. (**Batch mode does not support rage** — `-be` rejects `-m rage` on the engine side.)
 
 ### 4. Batch-Decrypt a Directory
 
 Select a directory containing `.ptd` files → enter the password → start. Original file names are restored automatically.
+
+### 5. Rotate Key
+
+Change the password of an existing `.ptd` container: pick the container → enter the current password (or select the current key file) → enter and confirm the new password → start (CLI `--rewrap`). Only the header key is rewritten, the **payload ciphertext is untouched**, and the file is updated in place; afterwards it must be decrypted with the new password.
 
 ### Logging & Progress
 
@@ -153,6 +161,8 @@ Select a directory containing `.ptd` files → enter the password → start. Ori
 | `Ctrl+D` | Switch to decrypt-file page |
 | `Ctrl+Shift+E` | Switch to batch-encrypt page |
 | `Ctrl+Shift+D` | Switch to batch-decrypt page |
+| `Ctrl+R` | Switch to rotate-key page |
+| `Ctrl+I` | Switch to about page |
 | `Ctrl+L` | Export log |
 | `Ctrl+W` | Clear log |
 | `Esc` | Cancel current operation |
@@ -165,6 +175,7 @@ Select a directory containing `.ptd` files → enter the password → start. Ori
 - **Config persistence**: user preferences auto-saved to `config.ini`
 - **Language switch**: choose "中文 / English" in the settings area to switch the UI language instantly
 - **Theme switch**: toggle between the two preset light/dark themes in the settings area
+- **About page**: shows the GUI version, the **runtime-probed** engine version and capabilities (zstd / AEGIS), engine path, runtime environment, open-source dependencies, friendly links and team pages (Bilibili / GitHub), plus "Copy all info" for pasting into a bug report
 
 > Engine version requirements: both Windows and Linux need **Official CLI 2.4.0 or later** (verified 2.4.1; format v6; operational parameters such as thread count are configured via the engine's `fileencryptor.yaml`; batch decrypt restores original names via `-rn`).
 

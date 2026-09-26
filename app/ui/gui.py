@@ -12,16 +12,21 @@ from ..core.engine import EngineService
 from ..core.args import (
     validate_encrypt_inputs, validate_decrypt_inputs,
     validate_batch_encrypt_inputs, validate_batch_decrypt_inputs,
+    validate_rewrap_inputs,
     ensure_output_dir, build_encrypt_args, build_decrypt_args,
     build_batch_encrypt_args, build_batch_decrypt_args,
+    build_rewrap_args, build_keygen_args,
 )
 from ..core.i18n import tr, set_lang, available_langs
+from ..core.about_info import probe_engine, collect_environment
+from ..core.version import GUI_VERSION, REPO_URL, CONTAINER_FORMAT
 from ..core.config import get_config
 from ..core.strength import password_score
 from .theme import get_theme, set_theme_name, theme_names, FONT, FONT_SM, FONT_LG, FONT_MONO, FONT_HEAD, FONT_FAMILY
 from .pages import build_page
 import os
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -174,6 +179,8 @@ class FileEncryptorGUI:
         self.root.bind("<Control-d>", lambda e: self._switch_mode("decrypt"))
         self.root.bind("<Control-E>", lambda e: self._switch_mode("batch_enc"))
         self.root.bind("<Control-D>", lambda e: self._switch_mode("batch_dec"))
+        self.root.bind("<Control-R>", lambda e: self._switch_mode("rewrap"))
+        self.root.bind("<Control-i>", lambda e: self._switch_mode("about"))
         self.root.bind("<Control-l>", lambda e: self._export_log())
         self.root.bind("<Control-w>", lambda e: self._clear_output())
         self.root.bind("<F5>", lambda e: self._refresh())
@@ -689,6 +696,8 @@ class FileEncryptorGUI:
             ("decrypt",   "\U0001F513  " + tr("nav_decrypt")),
             ("batch_enc", "\u25C9  " + tr("nav_batch_enc")),
             ("batch_dec", "\u25CB  " + tr("nav_batch_dec")),
+            ("rewrap",    "\U0001F511  " + tr("nav_rewrap")),
+            ("about",     "\u24D8  " + tr("nav_about")),
             ("settings",  "\u2699  " + tr("nav_settings")),
         ]
 
@@ -702,16 +711,17 @@ class FileEncryptorGUI:
             btn.bind("<Button-1>", lambda e, m=mode: self._switch_mode(m))
             self.nav_btns[mode] = btn
 
-        # 弹性空间（放在所有按钮之后，即第6行）
+        # 弹性空间（紧随导航项之后，吸收剩余高度并把版本信息托到底部）
+        spacer_row = len(nav_items) + 1   # 导航占 row 1..len(nav_items)
         spacer = ctk.CTkFrame(sidebar, fg_color=self._theme.BG_SIDEBAR, corner_radius=0)
-        spacer.grid(row=6, column=0, sticky="ew")
-        sidebar.rowconfigure(6, weight=1)
+        spacer.grid(row=spacer_row, column=0, sticky="ew")
+        sidebar.rowconfigure(spacer_row, weight=1)
 
         # 底部版本信息
         ver_frame = ctk.CTkFrame(sidebar, fg_color=self._theme.BG_SIDEBAR, corner_radius=0)
-        ver_frame.grid(row=10, column=0, sticky="ew")
+        ver_frame.grid(row=spacer_row + 2, column=0, sticky="ew")
         ver = ctk.CTkLabel(
-            ver_frame, text="v1.4.1 \u00b7 libsodium",
+            ver_frame, text=f"v{GUI_VERSION} \u00b7 libsodium",
             font=(FONT_FAMILY, 8), text_color=self._theme.VER_TEXT,
             anchor="w", padx=18, pady=12,
         )
@@ -737,6 +747,8 @@ class FileEncryptorGUI:
             ("decrypt",   "\U0001F513  " + tr("nav_decrypt")),
             ("batch_enc", "\u25C9  " + tr("nav_batch_enc")),
             ("batch_dec", "\u25CB  " + tr("nav_batch_dec")),
+            ("rewrap",    "\U0001F511  " + tr("nav_rewrap")),
+            ("about",     "\u24D8  " + tr("nav_about")),
             ("settings",  "\u2699  " + tr("nav_settings")),
         ]
         self._nav_items = {}
@@ -753,7 +765,7 @@ class FileEncryptorGUI:
             y += 34
 
         self._ver_item = sb.create_text(
-            18, 80, text="v2.0.0 \u00b7 libsodium",
+            18, 80, text=f"v{GUI_VERSION} \u00b7 libsodium",
             anchor="w", font=(FONT_FAMILY, 8), fill=self._theme.VER_TEXT)
         self._update_nav_canvas()
 
@@ -877,9 +889,9 @@ class FileEncryptorGUI:
                     btn.bind("<Enter>", lambda e, b=btn: b.configure(text_color=self._theme.NAV_HOVER))
                     btn.bind("<Leave>", lambda e, b=btn: b.configure(text_color=self._theme.NAV_INACTIVE))
 
-        # 设置页不显示日志/进度条区域，其余页面显示
+        # 设置页与关于页不显示日志/进度条区域，其余页面显示
         if getattr(self, "output_region", None) is not None:
-            if mode == "settings":
+            if mode in ("settings", "about"):
                 self.output_region.grid_remove()
             elif not self.output_region.winfo_ismapped():
                 self.output_region.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
@@ -962,7 +974,7 @@ class FileEncryptorGUI:
             self._progress_label.configure(text=label)
 
     def _run_async_stream(self, args, desc="", password=None, password2=None,
-                          timeout=600, overwrite=None, fallback=None):
+                          timeout=600, overwrite=None, fallback=None, cleanup_paths=None):
         """在后台线程中流式运行并实时显示输出"""
         if self._running:
             self._log(f"[!] {tr('msg_busy')}")
@@ -1035,6 +1047,13 @@ class FileEncryptorGUI:
             except Exception as e:
                 exit_code = -1
                 self.root.after(0, self._log, f"[!] 异常: {e}")
+            finally:
+                # 清理本次运行使用的临时文件（如 --new-key-file 的新密码文件）
+                for p in cleanup_paths or ():
+                    try:
+                        os.unlink(p)
+                    except OSError:
+                        pass
 
             self.root.after(0, self._on_stream_result, exit_code, collected, desc)
 
@@ -1075,25 +1094,30 @@ class FileEncryptorGUI:
         pw = self.enc_pw.get()
         pw2 = self.enc_pw2.get()
         keyfile = self.enc_keyfile.get().strip()
+        recipient = self.enc_recipient.get().strip() if self.enc_rage_var.get() else ""
         out = self.enc_out.get().strip()
         algo = self.enc_algo.get()
         delete = self.enc_del_var.get()
         recycle = self.enc_recycle_var.get()
-        zstd = self.enc_zstd_var.get()
+        # rage 模式下引擎忽略 zstd 与 --sha256，不传
+        zstd = self.enc_zstd_var.get() and not recipient
         compression_level = int(self.enc_compression_level.get()) if zstd else None
+        sha256 = self.enc_sha256_var.get() and not recipient
 
-        if self._show_errors(validate_encrypt_inputs(src, pw, pw2, keyfile)):
+        if self._show_errors(validate_encrypt_inputs(src, pw, pw2, keyfile, recipient)):
             return
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_encrypt_args(src, out, algo, delete, recycle, zstd, compression_level, keyfile)
+        args = build_encrypt_args(src, out, algo, delete, recycle, zstd,
+                                  compression_level, keyfile, sha256, recipient)
 
+        no_input = bool(keyfile or recipient)
         self._run_async_stream(
             args,
             desc=f"{tr('start_encrypt')}: {os.path.basename(src)}",
-            password=None if keyfile else pw,
-            password2=None if keyfile else pw,
+            password=None if no_input else pw,
+            password2=None if no_input else pw,
             timeout=600, overwrite="y", fallback="n",
         )
 
@@ -1115,25 +1139,65 @@ class FileEncryptorGUI:
             else:
                 self.benc_compression_level.configure(state="disabled")
 
+    # ── rage 非对称模式 / 密钥对生成 ───────────────────────────────────────
+
+    def _toggle_rage_mode(self):
+        """rage 模式下切换界面：加密页隐藏密码/密钥文件/zstd/sha256 并显示公钥行，解密页隐藏密码"""
+        if hasattr(self, "enc_rage_var") and hasattr(self, "enc_recipient_row"):
+            rage = self.enc_rage_var.get()
+            for w in (getattr(self, "enc_pw", None), getattr(self, "enc_pw2", None),
+                      getattr(self, "enc_keyfile", None),
+                      getattr(self, "enc_compress_row", None),
+                      getattr(self, "enc_sha256_row", None)):
+                if w is None:
+                    continue
+                if rage:
+                    w.grid_remove()
+                else:
+                    w.grid()
+            if rage:
+                self.enc_recipient_row.grid()
+            else:
+                self.enc_recipient_row.grid_remove()
+            self.enc_algo.configure(state="disabled" if rage else "readonly")
+
+        if hasattr(self, "dec_rage_var") and hasattr(self, "dec_pw"):
+            if self.dec_rage_var.get():
+                self.dec_pw.grid_remove()
+            else:
+                self.dec_pw.grid()
+
+    def _do_gen_keypair(self):
+        """生成 X25519 密钥对（-g）：公钥打印到日志，私钥存为 <目录>/rage_private.txt"""
+        out_dir = filedialog.askdirectory(title=tr("select_dir"))
+        if not out_dir:
+            return
+        self._run_async_stream(
+            build_keygen_args(out_dir),
+            desc=f"{tr('gen_keypair')}: {out_dir}",
+            timeout=120,
+        )
+
     # ── 解密执行 ───────────────────────────────────────────────────────
 
     def _do_decrypt(self):
         src = self.dec_file.get().strip()
         pw = self.dec_pw.get()
         keyfile = self.dec_keyfile.get().strip()
+        rage = self.dec_rage_var.get()
         out = self.dec_out.get().strip()
 
-        if self._show_errors(validate_decrypt_inputs(src, pw, keyfile)):
+        if self._show_errors(validate_decrypt_inputs(src, pw, keyfile, rage)):
             return
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_decrypt_args(src, out, keyfile)
+        args = build_decrypt_args(src, out, keyfile, rage)
 
         self._run_async_stream(
             args,
             desc=f"{tr('start_decrypt')}: {os.path.basename(src)}",
-            password=None if keyfile else pw, timeout=600, overwrite="y",
+            password=None if (keyfile or rage) else pw, timeout=600, overwrite="y",
         )
 
     # ── 批量加密 ───────────────────────────────────────────────────────
@@ -1149,13 +1213,15 @@ class FileEncryptorGUI:
         recycle = self.benc_recycle_var.get()
         zstd = self.benc_zstd_var.get()
         compression_level = int(self.benc_compression_level.get()) if zstd else None
+        sha256 = self.benc_sha256_var.get()
 
         if self._show_errors(validate_batch_encrypt_inputs(src, pw, pw2, keyfile)):
             return
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_batch_encrypt_args(src, out, algo, delete, recycle, zstd, compression_level, keyfile)
+        args = build_batch_encrypt_args(src, out, algo, delete, recycle, zstd,
+                                        compression_level, keyfile, sha256)
 
         self._run_async_stream(
             args,
@@ -1185,6 +1251,116 @@ class FileEncryptorGUI:
             desc=f"{tr('start_batch_dec')}: {os.path.basename(src)}",
             password=None if keyfile else pw, timeout=1800, overwrite="y",
         )
+
+    # ── 密钥轮换 ───────────────────────────────────────────────────────
+
+    def _do_rewrap(self):
+        src = self.rw_file.get().strip()
+        old_pw = self.rw_old_pw.get()
+        old_keyfile = self.rw_old_keyfile.get().strip()
+        new_pw = self.rw_new_pw.get()
+        new_pw2 = self.rw_new_pw2.get()
+
+        if self._show_errors(validate_rewrap_inputs(src, old_pw, new_pw, new_pw2, old_keyfile)):
+            return
+
+        # 新密码只能经文件交给引擎（--new-key-file），用后即删
+        tmp = ""
+        try:
+            fd, tmp = tempfile.mkstemp(prefix="fe_newkey_", suffix=".tmp")
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(new_pw)
+            if os.name != "nt":
+                os.chmod(tmp, 0o600)
+        except OSError as e:
+            if tmp and os.path.exists(tmp):
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+            messagebox.showerror(tr("error"), str(e))
+            return
+
+        args = build_rewrap_args(src, tmp, old_keyfile)
+
+        self._run_async_stream(
+            args,
+            desc=f"{tr('start_rewrap')}: {os.path.basename(src)}",
+            password=None if old_keyfile else old_pw,
+            timeout=600, overwrite="y",
+            cleanup_paths=[tmp],
+        )
+
+    # ── 关于页 ────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _cap_text(value):
+        """引擎能力值 True/False/None -> 支持/不支持/未知"""
+        if value is True:
+            return tr("about_supported")
+        if value is False:
+            return tr("about_unsupported")
+        return tr("about_unknown")
+
+    def _refresh_about(self):
+        """重新探测引擎与运行环境，回填「关于」页各字段"""
+        labels = getattr(self, "about_labels", None)
+        if not labels:
+            return
+        info = probe_engine()
+        labels["gui_version"].configure(text="v" + GUI_VERSION)
+        labels["container_format"].configure(text=CONTAINER_FORMAT)
+        if info["found"]:
+            labels["engine_version"].configure(text=info["version"] or tr("about_unknown"))
+            labels["engine_path"].configure(text=info["path"])
+        else:
+            labels["engine_version"].configure(text=tr("about_engine_not_found"))
+            labels["engine_path"].configure(text="\u2014")
+        labels["engine_caps"].configure(text="{}: {} \u00b7 {}: {}".format(
+            tr("about_cap_zstd"), self._cap_text(info["zstd"]),
+            tr("about_cap_aegis"), self._cap_text(info["aegis"])))
+
+        py_ver, deps = collect_environment()
+        if "env:python" in labels:
+            labels["env:python"].configure(text=py_ver)
+        for name, ver, _url in deps:
+            lbl = labels.get("env:" + name)
+            if lbl is not None:
+                lbl.configure(text=ver or tr("about_not_installed"))
+
+    def _about_report(self):
+        """「关于」页信息的纯文本快照（便于反馈问题时粘贴）"""
+        info = probe_engine()
+        py_ver, deps = collect_environment()
+        lines = [
+            "FileEncryptor GUI v" + GUI_VERSION,
+            "{}: {}".format(tr("about_engine_version"),
+                            info["version"] or tr("about_engine_not_found")),
+            "{}: {}".format(tr("about_engine_path"), info["path"] or "\u2014"),
+            "{}: {}".format(tr("about_container_format"), CONTAINER_FORMAT),
+            "{}: zstd={} aegis={}".format(tr("about_engine_caps"),
+                                          self._cap_text(info["zstd"]),
+                                          self._cap_text(info["aegis"])),
+            "{}: Python {}".format(tr("about_env"), py_ver),
+        ]
+        for name, ver, _url in deps:
+            lines.append("  - {}: {}".format(name, ver or tr("about_not_installed")))
+        lines.append("{}: {}".format(tr("about_repo"), REPO_URL))
+        return "\n".join(lines)
+
+    def _copy_about_info(self):
+        """复制「关于」页信息到剪贴板（按钮文字短暂显示「已复制」）"""
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(self._about_report())
+            self.root.update_idletasks()
+        except tk.TclError:
+            return
+        btn = getattr(self, "about_copy_btn", None)
+        if btn is None:
+            return
+        btn.configure(text=tr("about_copied"))
+        self.root.after(1500, lambda: btn.configure(text=tr("about_copy_all")))
 
     # ── 启动 ──────────────────────────────────────────────────────────
 
