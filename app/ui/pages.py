@@ -102,6 +102,14 @@ class EncryptPage(_BasePage):
         self.app.enc_del_var = tk.BooleanVar(value=False)
         ctk.CTkCheckBox(self.app.enc_del, text="", variable=self.app.enc_del_var,
                         fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left")
+
+        self.app.enc_recycle = ctk.CTkFrame(opt_row, fg_color=T.BG_CARD, corner_radius=0)
+        self.app.enc_recycle.grid(row=0, column=3, sticky="e", padx=(8, 0))
+        ctk.CTkLabel(self.app.enc_recycle, text=tr("recycle_source"), font=FONT_SM, text_color=T.TEXT_DARK
+                     ).pack(side="left", padx=(0, 4))
+        self.app.enc_recycle_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(self.app.enc_recycle, text="", variable=self.app.enc_recycle_var,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left")
         row += 1
 
         self.app.enc_out = FileSelector(form, tr("output_dir_auto"), is_dir=True)
@@ -212,6 +220,11 @@ class BatchEncryptPage(_BasePage):
         ctk.CTkCheckBox(opt_row2, text=tr("delete_source"), font=FONT_SM,
                         variable=self.app.benc_del_var, text_color=T.TEXT_DARK,
                         fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left", padx=(0, 16))
+
+        self.app.benc_recycle_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(opt_row2, text=tr("recycle_source"), font=FONT_SM,
+                        variable=self.app.benc_recycle_var, text_color=T.TEXT_DARK,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left")
 
         self.app.benc_out = FileSelector(form, tr("output_dir"), is_dir=True)
         self.app.benc_out.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 4))

@@ -1077,13 +1077,14 @@ class FileEncryptorGUI:
         out = self.enc_out.get().strip()
         algo = self.enc_algo.get()
         delete = self.enc_del_var.get()
+        recycle = self.enc_recycle_var.get()
 
         if self._show_errors(validate_encrypt_inputs(src, pw, pw2)):
             return
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_encrypt_args(src, out, algo, delete)
+        args = build_encrypt_args(src, out, algo, delete, recycle)
 
         self._run_async_stream(
             args,
@@ -1121,13 +1122,14 @@ class FileEncryptorGUI:
         out = self.benc_out.get().strip()
         algo = self.benc_algo.get()
         delete = self.benc_del_var.get()
+        recycle = self.benc_recycle_var.get()
 
         if self._show_errors(validate_batch_encrypt_inputs(src, pw, pw2)):
             return
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_batch_encrypt_args(src, out, algo, delete)
+        args = build_batch_encrypt_args(src, out, algo, delete, recycle)
 
         self._run_async_stream(
             args,

@@ -56,7 +56,7 @@ def ensure_output_dir(out):
             return ("error", "msg_cannot_create_dir")
     return None
 
-def build_encrypt_args(src, out="", algo="", delete=False):
+def build_encrypt_args(src, out="", algo="", delete=False, recycle=False):
     args = ["-e", src]
     if out:
         args += ["-o", out]
@@ -64,7 +64,9 @@ def build_encrypt_args(src, out="", algo="", delete=False):
         args += ["-m", "aegis256"]
     elif algo.startswith("XChaCha"):
         args += ["-m", "xchacha20"]
-    if delete:
+    if recycle:
+        args.append("--recycle-source")
+    elif delete:
         args.append("-de")
     args.append("-y")
     return args
@@ -76,13 +78,15 @@ def build_decrypt_args(src, out=""):
     args.append("-y")
     return args
 
-def build_batch_encrypt_args(src, out="", algo="", delete=False):
+def build_batch_encrypt_args(src, out="", algo="", delete=False, recycle=False):
     args = ["-be", "-i", src]
     if out:
         args += ["-o", out]
     if algo.startswith("AEGIS"):
         args += ["-m", "aegis256"]
-    if delete:
+    if recycle:
+        args.append("--recycle-source")
+    elif delete:
         args.append("-de")
     args.append("-y")
     return args
