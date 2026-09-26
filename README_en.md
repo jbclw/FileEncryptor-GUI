@@ -124,13 +124,15 @@ Optional options:
 - **Move to Recycle Bin**: move the original file to the system Recycle Bin on success (safer than deleting; takes priority over "Delete source")
 - **Enable zstd compression**: compress with zstd before encrypting (compression level 1–22), greatly shrinking the output for text-like files
 
+> You can also use a **key file** instead of a password: pick a file in the "Key file" field and its contents are used as the password (CLI `-k`, read non-interactively); the password field is then ignored.
+
 ### 2. Decrypt a Single File
 
 Select a `.ptd` file → enter the password → start decrypting.
 
 ### 3. Batch-Encrypt a Directory
 
-Select a source directory → enter the password → choose an algorithm → start. Recursively encrypts all files in the directory (CLI 2.x writes obfuscated output names). If a `.prs` resume file is detected, the engine automatically continues from where it left off. The concurrency is configured via the engine's `fileencryptor.yaml` (`worker_threads`, 0=auto); the GUI no longer provides a thread-count option. The same "Delete source / Move to Recycle Bin" and zstd compression options are supported.
+Select a source directory → enter the password → choose an algorithm → start. Recursively encrypts all files in the directory (CLI 2.x writes obfuscated output names). If a `.prs` resume file is detected, the engine automatically continues from where it left off. The concurrency is configured via the engine's `fileencryptor.yaml` (`worker_threads`, 0=auto); the GUI no longer provides a thread-count option. The same "Delete source / Move to Recycle Bin", zstd compression and key-file options are supported.
 
 ### 4. Batch-Decrypt a Directory
 

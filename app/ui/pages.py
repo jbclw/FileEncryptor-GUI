@@ -83,6 +83,10 @@ class EncryptPage(_BasePage):
         self.app.enc_pw2.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         row += 1
 
+        self.app.enc_keyfile = FileSelector(form, tr("key_file"))
+        self.app.enc_keyfile.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        row += 1
+
         opt_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
         opt_row.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         opt_row.columnconfigure(1, weight=1)
@@ -179,8 +183,10 @@ class DecryptPage(_BasePage):
         self.app.dec_file.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         self.app.dec_pw = PasswordEntry(form, tr("dec_password"))
         self.app.dec_pw.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        self.app.dec_keyfile = FileSelector(form, tr("key_file"))
+        self.app.dec_keyfile.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         self.app.dec_out = FileSelector(form, tr("output_dir_auto"), is_dir=True)
-        self.app.dec_out.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0, 4))
+        self.app.dec_out.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 4))
 
         btn_row = ctk.CTkFrame(card, fg_color=T.BG_CARD, corner_radius=0)
         btn_row.grid(row=4, column=0, sticky="e", padx=16, pady=(0, 16))
@@ -222,8 +228,11 @@ class BatchEncryptPage(_BasePage):
         self.app.benc_pw2 = PasswordEntry(form, tr("confirm_password"))
         self.app.benc_pw2.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0, 8))
 
+        self.app.benc_keyfile = FileSelector(form, tr("key_file"))
+        self.app.benc_keyfile.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+
         opt_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
-        opt_row.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        opt_row.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         opt_row.columnconfigure(1, weight=1)
 
         ctk.CTkLabel(opt_row, text=tr("algorithm"), font=FONT_SM, text_color=T.TEXT_DARK
@@ -234,7 +243,7 @@ class BatchEncryptPage(_BasePage):
         self.app.benc_algo.set("XChaCha20-Poly1305")
 
         opt_row2 = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
-        opt_row2.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        opt_row2.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         self.app.benc_del_var = tk.BooleanVar(value=False)
         ctk.CTkCheckBox(opt_row2, text=tr("delete_source"), font=FONT_SM,
                         variable=self.app.benc_del_var, text_color=T.TEXT_DARK,
@@ -247,7 +256,7 @@ class BatchEncryptPage(_BasePage):
 
         # zstd 压缩选项行
         compress_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
-        compress_row.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        compress_row.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(0, 8))
 
         self.app.benc_zstd_var = tk.BooleanVar(value=False)
         ctk.CTkCheckBox(compress_row, text=tr("enable_zstd"), font=FONT_SM,
@@ -264,7 +273,7 @@ class BatchEncryptPage(_BasePage):
         self.app.benc_compression_level.set("3")
 
         self.app.benc_out = FileSelector(form, tr("output_dir"), is_dir=True)
-        self.app.benc_out.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(0, 4))
+        self.app.benc_out.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(0, 4))
 
         btn_row = ctk.CTkFrame(card, fg_color=T.BG_CARD, corner_radius=0)
         btn_row.grid(row=4, column=0, sticky="e", padx=16, pady=(0, 16))
@@ -304,8 +313,11 @@ class BatchDecryptPage(_BasePage):
         self.app.bdec_pw = PasswordEntry(form, tr("dec_password"))
         self.app.bdec_pw.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 8))
 
+        self.app.bdec_keyfile = FileSelector(form, tr("key_file"))
+        self.app.bdec_keyfile.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+
         self.app.bdec_out = FileSelector(form, tr("output_dir"), is_dir=True)
-        self.app.bdec_out.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0, 4))
+        self.app.bdec_out.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 4))
 
         btn_row = ctk.CTkFrame(card, fg_color=T.BG_CARD, corner_radius=0)
         btn_row.grid(row=4, column=0, sticky="e", padx=16, pady=(0, 16))

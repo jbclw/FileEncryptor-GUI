@@ -1074,6 +1074,7 @@ class FileEncryptorGUI:
         src = self.enc_file.get().strip()
         pw = self.enc_pw.get()
         pw2 = self.enc_pw2.get()
+        keyfile = self.enc_keyfile.get().strip()
         out = self.enc_out.get().strip()
         algo = self.enc_algo.get()
         delete = self.enc_del_var.get()
@@ -1081,17 +1082,18 @@ class FileEncryptorGUI:
         zstd = self.enc_zstd_var.get()
         compression_level = int(self.enc_compression_level.get()) if zstd else None
 
-        if self._show_errors(validate_encrypt_inputs(src, pw, pw2)):
+        if self._show_errors(validate_encrypt_inputs(src, pw, pw2, keyfile)):
             return
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_encrypt_args(src, out, algo, delete, recycle, zstd, compression_level)
+        args = build_encrypt_args(src, out, algo, delete, recycle, zstd, compression_level, keyfile)
 
         self._run_async_stream(
             args,
             desc=f"{tr('start_encrypt')}: {os.path.basename(src)}",
-            password=pw, password2=pw,
+            password=None if keyfile else pw,
+            password2=None if keyfile else pw,
             timeout=600, overwrite="y", fallback="n",
         )
 
@@ -1118,19 +1120,20 @@ class FileEncryptorGUI:
     def _do_decrypt(self):
         src = self.dec_file.get().strip()
         pw = self.dec_pw.get()
+        keyfile = self.dec_keyfile.get().strip()
         out = self.dec_out.get().strip()
 
-        if self._show_errors(validate_decrypt_inputs(src, pw)):
+        if self._show_errors(validate_decrypt_inputs(src, pw, keyfile)):
             return
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_decrypt_args(src, out)
+        args = build_decrypt_args(src, out, keyfile)
 
         self._run_async_stream(
             args,
             desc=f"{tr('start_decrypt')}: {os.path.basename(src)}",
-            password=pw, timeout=600, overwrite="y",
+            password=None if keyfile else pw, timeout=600, overwrite="y",
         )
 
     # ── 批量加密 ───────────────────────────────────────────────────────
@@ -1139,6 +1142,7 @@ class FileEncryptorGUI:
         src = self.benc_dir.get().strip()
         pw = self.benc_pw.get()
         pw2 = self.benc_pw2.get()
+        keyfile = self.benc_keyfile.get().strip()
         out = self.benc_out.get().strip()
         algo = self.benc_algo.get()
         delete = self.benc_del_var.get()
@@ -1146,17 +1150,18 @@ class FileEncryptorGUI:
         zstd = self.benc_zstd_var.get()
         compression_level = int(self.benc_compression_level.get()) if zstd else None
 
-        if self._show_errors(validate_batch_encrypt_inputs(src, pw, pw2)):
+        if self._show_errors(validate_batch_encrypt_inputs(src, pw, pw2, keyfile)):
             return
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_batch_encrypt_args(src, out, algo, delete, recycle, zstd, compression_level)
+        args = build_batch_encrypt_args(src, out, algo, delete, recycle, zstd, compression_level, keyfile)
 
         self._run_async_stream(
             args,
             desc=f"{tr('start_batch_enc')}: {os.path.basename(src)}",
-            password=pw, password2=pw,
+            password=None if keyfile else pw,
+            password2=None if keyfile else pw,
             timeout=1800, overwrite="y", fallback="n",
         )
 
@@ -1165,19 +1170,20 @@ class FileEncryptorGUI:
     def _do_batch_decrypt(self):
         src = self.bdec_dir.get().strip()
         pw = self.bdec_pw.get()
+        keyfile = self.bdec_keyfile.get().strip()
         out = self.bdec_out.get().strip()
 
-        if self._show_errors(validate_batch_decrypt_inputs(src, pw)):
+        if self._show_errors(validate_batch_decrypt_inputs(src, pw, keyfile)):
             return
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_batch_decrypt_args(src, out)
+        args = build_batch_decrypt_args(src, out, keyfile)
 
         self._run_async_stream(
             args,
             desc=f"{tr('start_batch_dec')}: {os.path.basename(src)}",
-            password=pw, timeout=1800, overwrite="y",
+            password=None if keyfile else pw, timeout=1800, overwrite="y",
         )
 
     # ── 启动 ──────────────────────────────────────────────────────────
