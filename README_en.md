@@ -118,13 +118,19 @@ Passwords are not passed via command-line arguments (on Linux, `/proc/<pid>/cmdl
 
 Select a source file → enter the password (twice) → choose the algorithm → start encrypting. Output is `.ptd` format.
 
+Optional options:
+
+- **Delete source after encrypt**: delete the original file once encryption succeeds
+- **Move to Recycle Bin**: move the original file to the system Recycle Bin on success (safer than deleting; takes priority over "Delete source")
+- **Enable zstd compression**: compress with zstd before encrypting (compression level 1–22), greatly shrinking the output for text-like files
+
 ### 2. Decrypt a Single File
 
 Select a `.ptd` file → enter the password → start decrypting.
 
 ### 3. Batch-Encrypt a Directory
 
-Select a source directory → enter the password → choose an algorithm → start. Recursively encrypts all files in the directory (CLI 2.x writes obfuscated output names). If a `.prs` resume file is detected, the engine automatically continues from where it left off. The concurrency is configured via the engine's `fileencryptor.yaml` (`worker_threads`, 0=auto); the GUI no longer provides a thread-count option.
+Select a source directory → enter the password → choose an algorithm → start. Recursively encrypts all files in the directory (CLI 2.x writes obfuscated output names). If a `.prs` resume file is detected, the engine automatically continues from where it left off. The concurrency is configured via the engine's `fileencryptor.yaml` (`worker_threads`, 0=auto); the GUI no longer provides a thread-count option. The same "Delete source / Move to Recycle Bin" and zstd compression options are supported.
 
 ### 4. Batch-Decrypt a Directory
 
@@ -158,7 +164,7 @@ Select a directory containing `.ptd` files → enter the password → start. Ori
 - **Language switch**: choose "中文 / English" in the settings area to switch the UI language instantly
 - **Theme switch**: toggle between the two preset light/dark themes in the settings area
 
-> Engine version requirements: both Windows and Linux need **Official CLI 2.4.0** (format v6; operational parameters such as thread count are configured via the engine's `fileencryptor.yaml`; batch decrypt restores original names via `-rn`).
+> Engine version requirements: both Windows and Linux need **Official CLI 2.4.0 or later** (verified 2.4.1; format v6; operational parameters such as thread count are configured via the engine's `fileencryptor.yaml`; batch decrypt restores original names via `-rn`).
 
 ### Experimental: image background
 

@@ -112,6 +112,25 @@ class EncryptPage(_BasePage):
                         fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left")
         row += 1
 
+        # zstd 压缩选项行
+        compress_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
+        compress_row.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+
+        self.app.enc_zstd_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(compress_row, text=tr("enable_zstd"), font=FONT_SM,
+                        variable=self.app.enc_zstd_var, text_color=T.TEXT_DARK,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
+                        command=self.app._toggle_compression_level).pack(side="left", padx=(0, 8))
+
+        ctk.CTkLabel(compress_row, text=tr("compression_level"), font=FONT_SM, text_color=T.TEXT_DARK
+                     ).pack(side="left", padx=(8, 4))
+        self.app.enc_compression_level = ctk.CTkComboBox(
+            compress_row, values=[str(i) for i in range(1, 23)],
+            state="disabled", font=FONT, width=60)
+        self.app.enc_compression_level.pack(side="left", padx=(0, 4))
+        self.app.enc_compression_level.set("3")
+        row += 1
+
         self.app.enc_out = FileSelector(form, tr("output_dir_auto"), is_dir=True)
         self.app.enc_out.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 4))
         row += 1
@@ -226,8 +245,26 @@ class BatchEncryptPage(_BasePage):
                         variable=self.app.benc_recycle_var, text_color=T.TEXT_DARK,
                         fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left")
 
+        # zstd 压缩选项行
+        compress_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
+        compress_row.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+
+        self.app.benc_zstd_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(compress_row, text=tr("enable_zstd"), font=FONT_SM,
+                        variable=self.app.benc_zstd_var, text_color=T.TEXT_DARK,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
+                        command=self.app._toggle_compression_level).pack(side="left", padx=(0, 8))
+
+        ctk.CTkLabel(compress_row, text=tr("compression_level"), font=FONT_SM, text_color=T.TEXT_DARK
+                     ).pack(side="left", padx=(8, 4))
+        self.app.benc_compression_level = ctk.CTkComboBox(
+            compress_row, values=[str(i) for i in range(1, 23)],
+            state="disabled", font=FONT, width=60)
+        self.app.benc_compression_level.pack(side="left", padx=(0, 4))
+        self.app.benc_compression_level.set("3")
+
         self.app.benc_out = FileSelector(form, tr("output_dir"), is_dir=True)
-        self.app.benc_out.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 4))
+        self.app.benc_out.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(0, 4))
 
         btn_row = ctk.CTkFrame(card, fg_color=T.BG_CARD, corner_radius=0)
         btn_row.grid(row=4, column=0, sticky="e", padx=16, pady=(0, 16))

@@ -1078,13 +1078,15 @@ class FileEncryptorGUI:
         algo = self.enc_algo.get()
         delete = self.enc_del_var.get()
         recycle = self.enc_recycle_var.get()
+        zstd = self.enc_zstd_var.get()
+        compression_level = int(self.enc_compression_level.get()) if zstd else None
 
         if self._show_errors(validate_encrypt_inputs(src, pw, pw2)):
             return
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_encrypt_args(src, out, algo, delete, recycle)
+        args = build_encrypt_args(src, out, algo, delete, recycle, zstd, compression_level)
 
         self._run_async_stream(
             args,
@@ -1092,6 +1094,24 @@ class FileEncryptorGUI:
             password=pw, password2=pw,
             timeout=600, overwrite="y", fallback="n",
         )
+
+    # ── 压缩级别控制 ───────────────────────────────────────────────────────
+
+    def _toggle_compression_level(self):
+        """根据 zstd 复选框状态启用/禁用压缩级别下拉框"""
+        # 单文件加密
+        if hasattr(self, 'enc_zstd_var') and hasattr(self, 'enc_compression_level'):
+            if self.enc_zstd_var.get():
+                self.enc_compression_level.configure(state="normal")
+            else:
+                self.enc_compression_level.configure(state="disabled")
+
+        # 批量加密
+        if hasattr(self, 'benc_zstd_var') and hasattr(self, 'benc_compression_level'):
+            if self.benc_zstd_var.get():
+                self.benc_compression_level.configure(state="normal")
+            else:
+                self.benc_compression_level.configure(state="disabled")
 
     # ── 解密执行 ───────────────────────────────────────────────────────
 
@@ -1123,13 +1143,15 @@ class FileEncryptorGUI:
         algo = self.benc_algo.get()
         delete = self.benc_del_var.get()
         recycle = self.benc_recycle_var.get()
+        zstd = self.benc_zstd_var.get()
+        compression_level = int(self.benc_compression_level.get()) if zstd else None
 
         if self._show_errors(validate_batch_encrypt_inputs(src, pw, pw2)):
             return
         if (dir_err := ensure_output_dir(out)) and self._show_errors([dir_err]):
             return
 
-        args = build_batch_encrypt_args(src, out, algo, delete, recycle)
+        args = build_batch_encrypt_args(src, out, algo, delete, recycle, zstd, compression_level)
 
         self._run_async_stream(
             args,
