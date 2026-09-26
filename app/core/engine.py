@@ -144,53 +144,60 @@ def run_fileencryptor_stream(args, password=None, password2=None, timeout=300,
             except Exception:
                 pass
         return
-    exit_code = -1
-    buffer = ""
-    while True:
-        chunk = proc.stdout.read(4096)
-        if not chunk:
-            break
-        buffer += chunk.decode("utf-8", errors="replace")
+    try:
+        exit_code = -1
+        buffer = ""
         while True:
-            idx_n = buffer.find('\n')
-            idx_r = buffer.find('\r')
-            if idx_n < 0 and idx_r < 0:
+            chunk = proc.stdout.read(4096)
+            if not chunk:
                 break
-            if idx_n < 0:
-                cut = idx_r
-            elif idx_r < 0:
-                cut = idx_n
-            else:
-                cut = idx_n if idx_n < idx_r else idx_r
-            line = buffer[:cut]
-            buffer = buffer[cut + 1:]
-            if line.startswith("__EXIT__:"):
-                try:
-                    exit_code = int(line.split(":", 1)[1])
-                except ValueError:
-                    exit_code = -1
-                continue
-            if line.startswith("__ERR__:"):
-                err_msg = line.split(":", 1)[1] if ":" in line else ""
-                yield ("", None, err_msg)
-                continue
-            progress = _parse_progress(line)
+            buffer += chunk.decode("utf-8", errors="replace")
+            while True:
+                idx_n = buffer.find('\n')
+                idx_r = buffer.find('\r')
+                if idx_n < 0 and idx_r < 0:
+                    break
+                if idx_n < 0:
+                    cut = idx_r
+                elif idx_r < 0:
+                    cut = idx_n
+                else:
+                    cut = idx_n if idx_n < idx_r else idx_r
+                line = buffer[:cut]
+                buffer = buffer[cut + 1:]
+                if line.startswith("__EXIT__:"):
+                    try:
+                        exit_code = int(line.split(":", 1)[1])
+                    except ValueError:
+                        exit_code = -1
+                    continue
+                if line.startswith("__ERR__:"):
+                    err_msg = line.split(":", 1)[1] if ":" in line else ""
+                    yield ("", None, err_msg)
+                    continue
+                progress = _parse_progress(line)
+                if progress:
+                    yield ("", progress, "")
+                elif line.strip():
+                    yield (line, None, "")
+        if buffer.startswith("__EXIT__:"):
+            try:
+                exit_code = int(buffer.split(":", 1)[1].strip())
+            except ValueError:
+                exit_code = -1
+        elif buffer.strip():
+            progress = _parse_progress(buffer)
             if progress:
                 yield ("", progress, "")
-            elif line.strip():
-                yield (line, None, "")
-    if buffer.startswith("__EXIT__:"):
+            else:
+                yield (buffer.rstrip("\r"), None, "")
+        yield ("", None, exit_code)
+    finally:
+        # 删除临时密码文件，避免每次运行都在临时目录残留明文密码
         try:
-            exit_code = int(buffer.split(":", 1)[1].strip())
-        except ValueError:
-            exit_code = -1
-    elif buffer.strip():
-        progress = _parse_progress(buffer)
-        if progress:
-            yield ("", progress, "")
-        else:
-            yield (buffer.rstrip("\r"), None, "")
-    yield ("", None, exit_code)
+            os.unlink(pw_file)
+        except OSError:
+            pass
 
 
 class EngineService:
