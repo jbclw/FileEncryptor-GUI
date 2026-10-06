@@ -10,13 +10,13 @@
 （见 about_info.probe_engine），因为它取决于用户手上放置的 CLI 文件。
 """
 
-# GUI 版本（semver；须与 git tag 保持一致：v2.1.0 → v2.2.0）
-GUI_VERSION = "2.2.0"
+# GUI 版本（semver；须与 git tag 保持一致：v2.1.0 → v2.2.0 → v2.3.0）
+GUI_VERSION = "2.3.0"
 
 # 本 GUI 仓库
 REPO_URL = "https://github.com/jbclw/FileEncryptor-GUI"
 
-# 容器格式版本（CLI 2.x）
+# 容器格式版本（CLI 3.x）
 CONTAINER_FORMAT = "v6"
 
 # 许可证名称。留空则「关于」页不显示许可证行（待确定后填写，如 "MIT"）。

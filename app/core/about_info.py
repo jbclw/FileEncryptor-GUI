@@ -19,6 +19,9 @@ from .engine import find_exe
 _PROBE_TIMEOUT = 3
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
+# 引擎能力键（CLI --features 逐行 k=v；顺序即界面展示顺序）
+_CAP_KEYS = ("zstd", "aegis", "aesgcm", "sm4", "pqc", "split", "pack", "keywrap", "vault")
+
 
 def _run_engine(args):
     """运行引擎子进程，返回 (ok, 合并后的输出文本)。
@@ -45,12 +48,11 @@ def probe_engine():
     found  : 是否找到引擎文件
     path   : 引擎路径
     version: 版本号字符串（探测失败为空）
-    zstd   : True/False/None（None 表示未知）
-    aegis  : True/False/None
+    caps   : {能力键: True/False/None}（None 表示未知；键见 _CAP_KEYS）
     """
     exe = find_exe()
     info = {"found": os.path.isfile(exe), "path": exe,
-            "version": "", "zstd": None, "aegis": None}
+            "version": "", "caps": {k: None for k in _CAP_KEYS}}
     if not info["found"]:
         return info
 
@@ -69,8 +71,8 @@ def probe_engine():
                 continue
             k, v = line.split("=", 1)
             k, v = k.strip().lower(), v.strip()
-            if k in ("zstd", "aegis"):
-                info[k] = (v == "1")
+            if k in info["caps"]:
+                info["caps"][k] = (v == "1")
     return info
 
 

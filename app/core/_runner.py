@@ -210,7 +210,8 @@ def main():
         new_text = proc.read()
         if new_text:
             all_text += new_text
-        if password and not sent_pw1 and "Enter password" in all_text:
+        if password and not sent_pw1 and (
+                "Enter password" in all_text or "Enter key wrap password" in all_text):
             time.sleep(0.15)
             proc.writeline(password)
             sent_pw1 = True

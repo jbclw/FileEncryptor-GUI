@@ -21,6 +21,7 @@ from ..core.i18n import tr
 from ..core.about_info import CREDITS, collect_environment, FRIEND_LINK, TEAM
 from ..core.version import REPO_URL, CONTAINER_FORMAT, LICENSE_NAME
 from .widgets import PasswordEntry, FileSelector, PrimaryButton
+from ..core.args import ALGO_LABELS
 
 
 # 图片背景模式由 app 决策；页面构建仅读取 app._image_mode
@@ -98,7 +99,7 @@ class EncryptPage(_BasePage):
                      ).grid(row=0, column=0, sticky="w", padx=(0, 8))
 
         self.app.enc_algo = ctk.CTkComboBox(
-            opt_row, values=["XChaCha20-Poly1305", "AEGIS-256"], state="readonly", font=FONT, width=180)
+            opt_row, values=list(ALGO_LABELS), state="readonly", font=FONT, width=180)
         self.app.enc_algo.grid(row=0, column=1, sticky="w")
         self.app.enc_algo.set("XChaCha20-Poly1305")
 
@@ -139,38 +140,101 @@ class EncryptPage(_BasePage):
         self.app.enc_compression_level.set("3")
         row += 1
 
-        # SHA-256 校验单行（对称模式；rage 模式下引擎会忽略）
+        # SHA-256 校验 / 水印（对称模式；非对称下引擎忽略 --sha256，界面会隐藏本行）
         sha256_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
         sha256_row.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         self.app.enc_sha256_row = sha256_row
         self.app.enc_sha256_var = tk.BooleanVar(value=False)
         ctk.CTkCheckBox(sha256_row, text=tr("sha256_sidecar"), font=FONT_SM,
                         variable=self.app.enc_sha256_var, text_color=T.TEXT_DARK,
-                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left")
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left", padx=(0, 16))
+        self.app.enc_watermark_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(sha256_row, text=tr("embed_watermark"), font=FONT_SM,
+                        variable=self.app.enc_watermark_var, text_color=T.TEXT_DARK,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
+                        command=self.app._toggle_watermark_mode).pack(side="left")
         row += 1
 
-        # 非对称（rage）开关行
+        # 水印签名私钥行（勾选水印后显示）
+        wm_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
+        wm_row.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        wm_row.columnconfigure(0, weight=1)
+        self.app.enc_wm_row = wm_row
+        self.app.enc_wm_key = FileSelector(wm_row, tr("wm_privkey"))
+        self.app.enc_wm_key.grid(row=0, column=0, sticky="ew")
+        ctk.CTkButton(wm_row, text=tr("gen_wm_key"), width=110, height=28,
+                      font=FONT_SM, fg_color=T.BTN_BG, text_color=T.BTN_TEXT,
+                      hover_color=T.ACCENT_HOVER, cursor="hand2",
+                      command=self.app._do_gen_wm_key).grid(row=0, column=1, padx=(8, 0), sticky="s")
+        wm_row.grid_remove()
+        row += 1
+
+        # 分卷加密行
+        split_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
+        split_row.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        self.app.enc_split_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(split_row, text=tr("split_enable"), font=FONT_SM,
+                        variable=self.app.enc_split_var, text_color=T.TEXT_DARK,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
+                        command=self.app._toggle_split_mode).pack(side="left", padx=(0, 12))
+        ctk.CTkLabel(split_row, text=tr("split_size"), font=FONT_SM,
+                     text_color=T.TEXT_DARK).pack(side="left", padx=(0, 4))
+        self.app.enc_split_size = ctk.CTkComboBox(
+            split_row, values=["1MB", "4MB", "8MB", "64MB", "512MB", "1GB", "4GB"],
+            state="disabled", font=FONT, width=90)
+        self.app.enc_split_size.pack(side="left")
+        self.app.enc_split_size.set("512MB")
+        row += 1
+
+        # 非对称（X25519）开关行 + 密钥对生成选项
         rage_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
         rage_row.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         self.app.enc_rage_var = tk.BooleanVar(value=False)
-        ctk.CTkCheckBox(rage_row, text=tr("rage_asym"), font=FONT_SM,
+        ctk.CTkCheckBox(rage_row, text=tr("asym_encrypt"), font=FONT_SM,
                         variable=self.app.enc_rage_var, text_color=T.TEXT_DARK,
                         fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
-                        command=self.app._toggle_rage_mode).pack(side="left")
+                        command=self.app._toggle_rage_mode).pack(side="left", padx=(0, 16))
+        self.app.enc_x448_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(rage_row, text=tr("x448_keypair"), font=FONT_SM,
+                        variable=self.app.enc_x448_var, text_color=T.TEXT_MUTED,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left", padx=(0, 12))
+        self.app.enc_nopqc_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(rage_row, text=tr("no_pqc"), font=FONT_SM,
+                        variable=self.app.enc_nopqc_var, text_color=T.TEXT_MUTED,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left")
         row += 1
 
-        # 收件人公钥行（仅 rage 模式显示；可填 age1… 字符串或公钥文件）
+        # 收件人公钥行（仅非对称模式显示；可填 age1… / MLKEM1-… / X448-… 字符串或公钥文件）
         recipient_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
         recipient_row.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         recipient_row.columnconfigure(0, weight=1)
         self.app.enc_recipient_row = recipient_row
-        self.app.enc_recipient = FileSelector(recipient_row, tr("rage_recipient"))
+        self.app.enc_recipient = FileSelector(recipient_row, tr("asym_recipient"))
         self.app.enc_recipient.grid(row=0, column=0, sticky="ew")
         ctk.CTkButton(recipient_row, text=tr("gen_keypair"), width=110, height=28,
                       font=FONT_SM, fg_color=T.BTN_BG, text_color=T.BTN_TEXT,
                       hover_color=T.ACCENT_HOVER, cursor="hand2",
                       command=self.app._do_gen_keypair).grid(row=0, column=1, padx=(8, 0), sticky="s")
         recipient_row.grid_remove()
+        row += 1
+
+        # 打包为单个文件（-p）：输入改为目录树；与「非对称」「批量」互斥
+        pack_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
+        pack_row.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        self.app.enc_pack_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(pack_row, text=tr("pack_as_one"), font=FONT_SM,
+                        variable=self.app.enc_pack_var, text_color=T.TEXT_DARK,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
+                        command=self.app._toggle_pack_mode).pack(side="left")
+        row += 1
+
+        # 打包目录行（勾选打包后显示）
+        pack_dir_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
+        pack_dir_row.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        self.app.enc_pack_dir_row = pack_dir_row
+        self.app.enc_pack_dir = FileSelector(pack_dir_row, tr("pack_dir"), is_dir=True)
+        self.app.enc_pack_dir.pack(fill="x")
+        pack_dir_row.grid_remove()
         row += 1
 
         self.app.enc_out = FileSelector(form, tr("output_dir_auto"), is_dir=True)
@@ -227,13 +291,42 @@ class DecryptPage(_BasePage):
         rage_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
         rage_row.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         self.app.dec_rage_var = tk.BooleanVar(value=False)
-        ctk.CTkCheckBox(rage_row, text=tr("rage_decrypt"), font=FONT_SM,
+        ctk.CTkCheckBox(rage_row, text=tr("asym_decrypt"), font=FONT_SM,
                         variable=self.app.dec_rage_var, text_color=T.TEXT_DARK,
                         fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
                         command=self.app._toggle_rage_mode).pack(side="left")
 
+        # 解密行为选项：仅预览 / 不展开归档 / 强制解密 / 查看水印
+        opt_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
+        opt_row.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        self.app.dec_preview_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(opt_row, text=tr("preview_only"), font=FONT_SM,
+                        variable=self.app.dec_preview_var, text_color=T.TEXT_DARK,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left", padx=(0, 14))
+        self.app.dec_noextract_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(opt_row, text=tr("no_extract"), font=FONT_SM,
+                        variable=self.app.dec_noextract_var, text_color=T.TEXT_DARK,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left", padx=(0, 14))
+        self.app.dec_force_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(opt_row, text=tr("force_decrypt"), font=FONT_SM,
+                        variable=self.app.dec_force_var, text_color=T.TEXT_MUTED,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER).pack(side="left", padx=(0, 14))
+        self.app.dec_wmextract_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(opt_row, text=tr("extract_watermark"), font=FONT_SM,
+                        variable=self.app.dec_wmextract_var, text_color=T.TEXT_DARK,
+                        fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
+                        command=self.app._toggle_wm_extract).pack(side="left")
+
+        # 水印公钥行（仅「查看水印」时显示，用于验签）
+        wm_pub_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
+        wm_pub_row.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        self.app.dec_wm_pub_row = wm_pub_row
+        self.app.dec_wm_pub = FileSelector(wm_pub_row, tr("wm_pubkey"))
+        self.app.dec_wm_pub.pack(fill="x")
+        wm_pub_row.grid_remove()
+
         self.app.dec_out = FileSelector(form, tr("output_dir_auto"), is_dir=True)
-        self.app.dec_out.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 4))
+        self.app.dec_out.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(0, 4))
 
         btn_row = ctk.CTkFrame(card, fg_color=T.BG_CARD, corner_radius=0)
         btn_row.grid(row=4, column=0, sticky="e", padx=16, pady=(0, 16))
@@ -285,7 +378,7 @@ class BatchEncryptPage(_BasePage):
         ctk.CTkLabel(opt_row, text=tr("algorithm"), font=FONT_SM, text_color=T.TEXT_DARK
                      ).grid(row=0, column=0, sticky="w", padx=(0, 8))
         self.app.benc_algo = ctk.CTkComboBox(
-            opt_row, values=["XChaCha20-Poly1305", "AEGIS-256"], state="readonly", font=FONT, width=180)
+            opt_row, values=list(ALGO_LABELS), state="readonly", font=FONT, width=180)
         self.app.benc_algo.grid(row=0, column=1, sticky="w")
         self.app.benc_algo.set("XChaCha20-Poly1305")
 
@@ -678,6 +771,100 @@ class AboutPage(_BasePage):
         return page
 
 
+class WrapPage(_BasePage):
+    """密钥封装页：--wrap-key / --unwrap-key
+
+    包装的是 32 字节数据密钥（DEK）本身，与加解密模式无关，也不涉及文件内容。
+    """
+
+    def build(self, parent):
+        app = self.app
+        T = self.T
+        page = self._panel(parent)
+        page.columnconfigure(0, weight=1)
+
+        def _card(row):
+            card = ctk.CTkFrame(page, fg_color=T.BG_CARD, corner_radius=8,
+                                border_width=1, border_color=T.BORDER)
+            card.grid(row=row, column=0, sticky="ew", pady=(0 if row == 0 else 8, 0))
+            card.columnconfigure(0, weight=1)
+            return card
+
+        def _head(card, title, desc):
+            ctk.CTkLabel(card, text=title, font=FONT_HEAD, text_color=T.TEXT_DARK,
+                         anchor="w", padx=16).grid(row=0, column=0, sticky="ew", pady=(14, 4))
+            ctk.CTkLabel(card, text=desc, font=FONT_SM, text_color=T.TEXT_MUTED, anchor="w",
+                         padx=16, wraplength=620, justify="left"
+                         ).grid(row=1, column=0, sticky="ew", pady=(0, 10))
+            ctk.CTkFrame(card, height=1, fg_color=T.BORDER, corner_radius=0
+                         ).grid(row=2, column=0, sticky="ew", padx=16)
+            form = ctk.CTkFrame(card, fg_color=T.BG_CARD, corner_radius=0)
+            form.grid(row=3, column=0, sticky="ew", padx=16, pady=(12, 16))
+            form.columnconfigure(1, weight=1)
+            return form
+
+        def _out_entry(form, row, hint):
+            e = ctk.CTkEntry(form, height=30, font=FONT, fg_color=T.INPUT_BG,
+                             border_width=1, border_color=T.BORDER, text_color=T.TEXT_DARK,
+                             placeholder_text=hint)
+            e.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+            return e
+
+        # ── 封装 ──
+        card = _card(0)
+        form = _head(card, "\U0001F5DD  " + tr("wrap_tab_wrap"), tr("wrap_desc"))
+        app.wrap_dek = FileSelector(form, tr("wrap_dek"))
+        app.wrap_dek.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+
+        alg_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
+        alg_row.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        ctk.CTkLabel(alg_row, text=tr("wrap_alg"), font=FONT_SM, text_color=T.TEXT_DARK
+                     ).pack(side="left", padx=(0, 8))
+        app.wrap_alg = ctk.CTkComboBox(
+            alg_row, values=["kwp (RFC 5649)", "aes-kw (RFC 3394)", "pubkey"],
+            state="readonly", font=FONT, width=180, command=app._on_wrap_alg_change)
+        app.wrap_alg.pack(side="left")
+        app.wrap_alg.set("kwp (RFC 5649)")
+
+        # 公钥封装行（选 pubkey 后显示，此时不需要密码）
+        app.wrap_pub_row = ctk.CTkFrame(form, fg_color=T.BG_CARD, corner_radius=0)
+        app.wrap_pub_row.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        app.wrap_pub = FileSelector(app.wrap_pub_row, tr("wrap_to_pub"))
+        app.wrap_pub.pack(fill="x")
+        app.wrap_pub_row.grid_remove()
+
+        app.wrap_pw = PasswordEntry(form, tr("password"))
+        app.wrap_pw.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        app.wrap_keyfile = FileSelector(form, tr("key_file"))
+        app.wrap_keyfile.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        app.wrap_out = _out_entry(form, 5, tr("wrap_out_path"))
+
+        btn_row = ctk.CTkFrame(card, fg_color=T.BG_CARD, corner_radius=0)
+        btn_row.grid(row=4, column=0, sticky="e", padx=16, pady=(0, 16))
+        app.wrap_go = PrimaryButton(btn_row, tr("start_wrap"), command=app._do_wrap)
+        app.wrap_go.pack(side="right")
+
+        # ── 解封 ──
+        card2 = _card(1)
+        form2 = _head(card2, "\U0001F511  " + tr("wrap_tab_unwrap"), tr("unwrap_blob"))
+        app.unwrap_blob = FileSelector(form2, tr("unwrap_blob"))
+        app.unwrap_blob.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        app.unwrap_identity = FileSelector(form2, tr("identity_key"))
+        app.unwrap_identity.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        app.unwrap_pw = PasswordEntry(form2, tr("password"))
+        app.unwrap_pw.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        app.unwrap_keyfile = FileSelector(form2, tr("key_file"))
+        app.unwrap_keyfile.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        app.unwrap_out = _out_entry(form2, 4, tr("unwrap_out_path"))
+
+        btn_row2 = ctk.CTkFrame(card2, fg_color=T.BG_CARD, corner_radius=0)
+        btn_row2.grid(row=4, column=0, sticky="e", padx=16, pady=(0, 16))
+        app.unwrap_go = PrimaryButton(btn_row2, tr("start_unwrap"), command=app._do_unwrap)
+        app.unwrap_go.pack(side="right")
+
+        return page
+
+
 # 模式 -> 页面组件工厂（保持 gui._switch_mode 的按名分发稳定）
 PAGE_FACTORIES = {
     "encrypt": EncryptPage,
@@ -685,6 +872,7 @@ PAGE_FACTORIES = {
     "batch_enc": BatchEncryptPage,
     "batch_dec": BatchDecryptPage,
     "rewrap": RewrapPage,
+    "wrap": WrapPage,
     "about": AboutPage,
     "settings": SettingsPage,
 }
